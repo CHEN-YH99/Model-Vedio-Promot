@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  plan         Plan      @default(FREE)
+  dailyQuota   Int       @default(3)
+  quotaUsedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  analyses     Analysis[]
+  sessions     Session[]
+  uploads      UploadedFile[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Analysis {
+  id            String         @id @default(cuid())
+  userId        String
+  fileId        String
+  status        AnalysisStatus
+  progress      Int            @default(0)
+  errorMessage  String?
+  config        Json
+  frames        Frame[]
+  overallPrompt Json?
+  styleTags     String[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Frame {
+  id         String   @id @default(cuid())
+  analysisId String
+  timestamp  Float
+  thumbUrl   String
+  rawAnalysis Json
+  prompts    Json
+  analysis   Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+}
+
+model UploadedFile {
+  id           String       @id @default(cuid())
+  userId       String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  duration     Float?
+  resolution   String?
+  fps          Float?
+  codec        String?
+  status       UploadStatus @default(METADATA_READY)
+  uploadedAt   DateTime     @default(now())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, uploadedAt])
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum AnalysisStatus {
+  PENDING
+  EXTRACTING
+  ANALYZING
+  DONE
+  FAILED
+}
+
+enum UploadStatus {
+  METADATA_READY
+  FAILED
+}

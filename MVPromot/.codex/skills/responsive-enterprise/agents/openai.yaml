@@ -1,0 +1,7 @@
+interface:
+  display_name: "响应式企业级修复"
+  short_description: "处理跨端响应式布局、可读性与交互稳定性。"
+  default_prompt: "Use $responsive-enterprise to fix or implement production-grade responsive behavior for this page or component."
+
+policy:
+  allow_implicit_invocation: true

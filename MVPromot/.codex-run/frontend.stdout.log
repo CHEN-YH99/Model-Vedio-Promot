@@ -1,0 +1,43 @@
+
+> video-to-prompt@0.1.0 dev:frontend
+> npm run dev --workspace @vtp/frontend
+
+
+> @vtp/frontend@0.1.0 dev
+> vite --host 0.0.0.0 --port 5173
+
+
+  [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m511[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.122.210:[1m5173[22m/[39m
+[2m18:29:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/router.ts[22m
+[2m18:29:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ new dependencies optimized: [33maxios[32m[39m
+[2m18:29:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[2m18:30:20[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/main.ts[22m
+[2m18:30:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\layouts\AppLayout.vue, /src/style.css[22m
+[2m18:31:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/HomePage.vue, /src/style.css[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/api/auth.ts[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/api/interceptors.ts[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\pages\LoginPage.vue, /src/style.css[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\pages\RegisterPage.vue, /src/style.css[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/stores/auth.ts[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/types/auth.ts[22m
+[2m18:35:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/types/router.d.ts[22m
+[2m19:37:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/router.ts[22m
+[2m19:37:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/HomePage.vue, /src/style.css[22m
+[2m19:39:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\components\UploadZone.vue, /src/style.css[22m
+[2m19:39:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/AnalyzePage.vue, /src/style.css[22m
+[2m19:39:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/style.css, /@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\components\UploadZone.vue[22m
+[2m20:40:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/AnalyzePage.vue, /src/style.css[22m
+[2m20:41:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/router.ts[22m
+[2m20:41:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/HomePage.vue, /src/style.css[22m
+[2m20:44:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/style.css, /src/pages/AnalyzePage.vue, /@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\pages\AnalysisProgressPage.vue, /@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\pages\ResultPage.vue[22m
+[2m20:44:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\pages\AnalysisProgressPage.vue, /src/style.css[22m
+[2m20:44:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/AnalyzePage.vue, /src/style.css[22m
+[2m20:44:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\pages\ResultPage.vue, /src/style.css[22m
+[2m20:44:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/types/analysis.ts[22m
+[2m22:01:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\components\UploadZone.vue, /src/style.css[22m
+[2m22:01:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\components\UploadZone.vue, /src/style.css[22m
+[2m22:01:47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/HomePage.vue, /src/style.css[22m
+[2m22:03:19[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/@fs/E:\个人项目\JS练习\视频转提示词项目\apps\frontend\src\components\UploadZone.vue, /src/style.css[22m

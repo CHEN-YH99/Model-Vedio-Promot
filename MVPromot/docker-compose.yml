@@ -1,0 +1,75 @@
+name: video-to-prompt
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: video_prompt_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: video_prompt
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d video_prompt']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: video_prompt_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: video_prompt_backend
+    restart: unless-stopped
+    env_file:
+      - ./apps/backend/.env
+    environment:
+      # 仅覆盖因 docker 网络拓扑必须变更的字段，其他全部走 .env
+      # 这样 JWT secret / OPENAI 配置等只有一份真实来源，避免本机/容器签名不一致
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/video_prompt
+      REDIS_URL: redis://redis:6379
+      UPLOAD_DIR: /tmp/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run prisma:generate && (npm run prisma:deploy || (npm run prisma:resolve:init && npm run prisma:deploy)) && npm run dev"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: video_prompt_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '5173:80'
+
+volumes:
+  postgres_data:
+  redis_data:

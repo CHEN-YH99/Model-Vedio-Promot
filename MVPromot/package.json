@@ -1,0 +1,26 @@
+{
+  "name": "video-to-prompt",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace @vtp/frontend",
+    "dev:backend": "npm run dev --workspace @vtp/backend",
+    "lint": "npm run lint --workspaces --if-present",
+    "types": "npm run types --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run types",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "prettier": "^3.4.2"
+  }
+}

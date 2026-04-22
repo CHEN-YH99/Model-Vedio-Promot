@@ -1,0 +1,7 @@
+interface:
+  display_name: "企业级 Vue+Node 工程规范"
+  short_description: "面向 Vue+TS+SCSS+Node+MongoDB 的企业级开发与治理规范。"
+  default_prompt: "Use $enterprise-vue-ts-scss-node-mongodb to implement or refactor this project with enterprise-grade architecture, naming, maintainability, performance, and SEO standards."
+
+policy:
+  allow_implicit_invocation: true

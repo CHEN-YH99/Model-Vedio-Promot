@@ -1,0 +1,7 @@
+﻿.codex/
+*.md
+node_modules/
+.npm-cache/
+dist/
+coverage/
+package-lock.json

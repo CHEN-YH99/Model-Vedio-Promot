@@ -1,0 +1,1 @@
+{"root":["./src/env.d.ts","./src/main.ts","./src/router.ts","./src/api/http.ts","./src/composables/useprettyfilesize.ts","./src/stores/app.ts","./src/types/video.ts","./src/utils/formatduration.ts","./src/app.vue","./src/components/hellocard.vue","./src/layouts/applayout.vue","./src/pages/homepage.vue"],"version":"5.9.3"}

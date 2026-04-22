@@ -1,0 +1,18 @@
+node_modules/
+.npm-cache/
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+coverage/
+
+# Vite
+apps/frontend/.vite/
+
+# Prisma local db
+apps/backend/prisma/*.db
+
+# Docker
+*.pid
