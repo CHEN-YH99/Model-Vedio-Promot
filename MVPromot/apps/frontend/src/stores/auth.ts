@@ -18,6 +18,23 @@ interface AuthState {
   hydrated: boolean;
 }
 
+function decodeJwtPayload(token: string) {
+  const [, payload] = token.split('.');
+
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const json = atob(padded);
+    return JSON.parse(json) as { exp?: number };
+  } catch {
+    return null;
+  }
+}
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
@@ -112,6 +129,41 @@ export const useAuthStore = defineStore('auth', {
       this.refreshToken = tokens.refreshToken;
       this.persist();
       return tokens.accessToken;
+    },
+
+    accessTokenExpiresSoon(bufferSeconds = 30) {
+      if (!this.accessToken) {
+        return true;
+      }
+
+      const payload = decodeJwtPayload(this.accessToken);
+      const exp = payload?.exp;
+
+      if (!exp) {
+        return true;
+      }
+
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      return exp <= nowSeconds + bufferSeconds;
+    },
+
+    async ensureFreshAccessToken() {
+      if (!this.accessToken) {
+        return null;
+      }
+
+      if (!this.accessTokenExpiresSoon()) {
+        return this.accessToken;
+      }
+
+      const nextToken = await this.refreshSession().catch(() => null);
+
+      if (!nextToken) {
+        this.clearAuth();
+        return null;
+      }
+
+      return nextToken;
     },
 
     async logout() {

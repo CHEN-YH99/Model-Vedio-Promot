@@ -8,6 +8,7 @@ const distRoot = resolve('./dist');
 const indexPath = join(distRoot, 'index.html');
 const backendOrigin = process.env.BACKEND_ORIGIN ?? 'http://backend:3000';
 const port = Number(process.env.PORT ?? 80);
+const backendRequestTimeoutMs = Number(process.env.BACKEND_REQUEST_TIMEOUT_MS ?? 15000);
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -66,13 +67,28 @@ async function serveStatic(response, pathname) {
 }
 
 async function proxyRequest(request, response) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, backendRequestTimeoutMs);
+
   const targetUrl = new URL(request.url, backendOrigin);
-  const upstream = await fetch(targetUrl, {
-    method: request.method,
-    headers: request.headers,
-    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request,
-    duplex: request.method === 'GET' || request.method === 'HEAD' ? undefined : 'half',
-  });
+  let upstream;
+
+  try {
+    upstream = await fetch(targetUrl, {
+      method: request.method,
+      headers: request.headers,
+      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request,
+      duplex: request.method === 'GET' || request.method === 'HEAD' ? undefined : 'half',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error';
+    throw new Error(`Proxy request failed (${request.method} ${targetUrl}): ${reason}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   response.statusCode = upstream.status;
 
@@ -88,13 +104,39 @@ async function proxyRequest(request, response) {
   Readable.fromWeb(upstream.body).pipe(response);
 }
 
+function respondProxyError(request, response, message) {
+  response.statusCode = 502;
+
+  const requestUrl = request.url ?? '/';
+  if (requestUrl.startsWith('/api/')) {
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.end(
+      JSON.stringify({
+        message: '后端服务暂时不可用，请稍后重试',
+        code: 'BACKEND_UNAVAILABLE',
+        detail: message,
+      }),
+    );
+    return;
+  }
+
+  response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  response.end(`Proxy error: ${message}`);
+}
+
 const server = http.createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url ?? '/', 'http://frontend.local');
     const pathname = requestUrl.pathname;
 
     if (pathname.startsWith('/api/') || pathname.startsWith('/uploads/')) {
-      await proxyRequest(request, response);
+      try {
+        await proxyRequest(request, response);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown proxy error';
+        console.error(`[frontend-proxy] ${new Date().toISOString()} ${message}`);
+        respondProxyError(request, response, message);
+      }
       return;
     }
 

@@ -8,6 +8,17 @@ import type { FrameAnalysis, PromptLanguage } from '../types/analysis.js';
 import { HttpError } from '../utils/http-error.js';
 
 const OUTPUT_FORMAT_NAME = 'frame_analysis';
+const FRAME_ANALYSIS_CONTRACT = {
+  subject: 'Main visible subject in a short production-ready English phrase.',
+  scene: 'Scene and environment in a short English phrase.',
+  colorTone: 'Color palette or tone in a short English phrase.',
+  lighting: 'Lighting setup or quality in a short English phrase.',
+  style: 'Visual style in a short English phrase.',
+  mood: 'Mood or atmosphere in a short English phrase.',
+  cameraAngle: 'Shot type or camera angle in a short English phrase.',
+  cameraMovement:
+    'Camera movement in a short English phrase. Use "locked camera" when motion cannot be inferred.',
+} as const;
 
 const frameAnalysisSchema = z.object({
   subject: z.string().trim().min(1),
@@ -68,6 +79,46 @@ const frameAnalysisJsonSchema = {
     'cameraMovement',
   ],
 } as const;
+const FRAME_ANALYSIS_KEYS = [
+  'subject',
+  'scene',
+  'colorTone',
+  'lighting',
+  'style',
+  'mood',
+  'cameraAngle',
+  'cameraMovement',
+] as const satisfies ReadonlyArray<keyof FrameAnalysis>;
+
+const FRAME_ANALYSIS_KEY_ALIASES: Record<keyof FrameAnalysis, string[]> = {
+  subject: ['subject', 'mainSubject', 'main_subject', 'object', '主体', '主体描述'],
+  scene: ['scene', 'environment', 'background', '场景', '场景描述', '环境'],
+  colorTone: ['colorTone', 'color_tone', 'color', 'palette', 'tone', '色调', '颜色', '色彩'],
+  lighting: ['lighting', 'light', 'illumination', '光线', '打光', '光照'],
+  style: ['style', 'visualStyle', 'visual_style', '画面风格', '风格'],
+  mood: ['mood', 'atmosphere', 'emotion', '情绪', '氛围'],
+  cameraAngle: ['cameraAngle', 'camera_angle', 'shotType', 'shot_type', 'angle', '景别', '镜头角度'],
+  cameraMovement: [
+    'cameraMovement',
+    'camera_movement',
+    'cameraMotion',
+    'camera_motion',
+    'movement',
+    '运镜',
+    '镜头运动',
+  ],
+};
+
+const FRAME_ANALYSIS_FALLBACKS: FrameAnalysis = {
+  subject: 'unspecified subject',
+  scene: 'unspecified scene',
+  colorTone: 'neutral color tone',
+  lighting: 'natural lighting',
+  style: 'cinematic style',
+  mood: 'neutral mood',
+  cameraAngle: 'medium shot',
+  cameraMovement: 'locked camera',
+};
 
 const SUBJECT_POOL = [
   'a young protagonist',
@@ -138,6 +189,12 @@ type OpenAIChatCompletionsApiResult = {
             type?: string;
             text?: string;
           }>;
+      reasoning_content?:
+        | string
+        | Array<{
+            type?: string;
+            text?: string;
+          }>;
       refusal?: string;
     };
   }>;
@@ -201,23 +258,54 @@ function buildOpenAIApiUrl(endpoint: 'responses' | 'chat/completions') {
   return `${root}/${endpoint}`;
 }
 
-function buildAnalysisInstruction(input: { timestamp: number; language: PromptLanguage }) {
+function buildAnalysisInstruction(input: {
+  timestamp: number;
+  language: PromptLanguage;
+  strictSpecificity?: boolean;
+}) {
   const languageNote =
     input.language === 'zh'
       ? 'The downstream prompt output will be Chinese.'
       : input.language === 'bilingual'
         ? 'The downstream prompt output will be bilingual.'
         : 'The downstream prompt output will be English.';
+  const specificityNote = input.strictSpecificity
+    ? [
+        'Prioritize image-grounded details over generic wording.',
+        'Each field must include concrete visual cues seen in the frame.',
+        'Do not output placeholders such as "unspecified", "generic", or "unknown".',
+        'Do not invent entities not visible in the frame.',
+      ].join(' ')
+    : 'Prefer concrete, image-grounded phrasing over abstract wording.';
 
   return [
     'You are analyzing a single keyframe from a source video for prompt generation.',
-    'Return concise, production-ready JSON only.',
+    'Return valid JSON only. Do not wrap the JSON in markdown or code fences.',
+    'Return exactly these keys and no extra keys:',
+    JSON.stringify(FRAME_ANALYSIS_CONTRACT),
     'All field values must be short English phrases so downstream prompt templates can localize them.',
     'Infer camera movement conservatively. If motion cannot be inferred from one frame, use "locked camera".',
     'Avoid generic filler like "beautiful" or "nice".',
+    specificityNote,
     languageNote,
     `Frame timestamp: ${input.timestamp.toFixed(3)} seconds.`,
   ].join(' ');
+}
+
+function shouldUseJsonObjectResponseFormat() {
+  return /bigmodel\.cn/i.test(env.OPENAI_BASE_URL) || env.OPENAI_MODEL.toLowerCase().startsWith('glm-');
+}
+
+function shouldDisableThinkingMode() {
+  return /bigmodel\.cn/i.test(env.OPENAI_BASE_URL) || env.OPENAI_MODEL.toLowerCase().startsWith('glm-');
+}
+
+function getChatCompletionMaxTokens(attempt: number) {
+  return 1200 + attempt * 400;
+}
+
+function getResponsesMaxOutputTokens() {
+  return 1200;
 }
 
 function extractResponsesText(payload: OpenAIResponsesApiResult) {
@@ -255,6 +343,18 @@ function extractChatCompletionText(payload: OpenAIChatCompletionsApiResult) {
     }
   }
 
+  if (typeof message.reasoning_content === 'string' && message.reasoning_content.trim().length > 0) {
+    return message.reasoning_content.trim();
+  }
+
+  if (Array.isArray(message.reasoning_content)) {
+    for (const item of message.reasoning_content) {
+      if (typeof item.text === 'string' && item.text.trim().length > 0) {
+        return item.text.trim();
+      }
+    }
+  }
+
   return null;
 }
 
@@ -275,7 +375,11 @@ async function parseOpenAIError(response: Response) {
 }
 
 function extractJsonPayload(content: string): string {
-  const trimmed = content.trim();
+  const answerMatch = content.match(/<answer>([\s\S]*)$/i);
+  const trimmed = (answerMatch?.[1] ?? content)
+    .replace(/<\/?think>/gi, '')
+    .replace(/<\/?answer>/gi, '')
+    .trim();
 
   const codeBlockMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
   if (codeBlockMatch?.[1]) {
@@ -291,6 +395,317 @@ function extractJsonPayload(content: string): string {
   return trimmed;
 }
 
+function finalizePartialFrameAnalysis(
+  partial: Partial<FrameAnalysis>,
+  minimumFields: number,
+): FrameAnalysis | null {
+  let score = 0;
+
+  for (const key of FRAME_ANALYSIS_KEYS) {
+    if (typeof partial[key] === 'string' && partial[key]?.trim()) {
+      score += 1;
+    }
+  }
+
+  if (score < minimumFields) {
+    return null;
+  }
+
+  return {
+    subject: partial.subject ?? FRAME_ANALYSIS_FALLBACKS.subject,
+    scene: partial.scene ?? FRAME_ANALYSIS_FALLBACKS.scene,
+    colorTone: partial.colorTone ?? FRAME_ANALYSIS_FALLBACKS.colorTone,
+    lighting: partial.lighting ?? FRAME_ANALYSIS_FALLBACKS.lighting,
+    style: partial.style ?? FRAME_ANALYSIS_FALLBACKS.style,
+    mood: partial.mood ?? FRAME_ANALYSIS_FALLBACKS.mood,
+    cameraAngle: partial.cameraAngle ?? FRAME_ANALYSIS_FALLBACKS.cameraAngle,
+    cameraMovement: partial.cameraMovement ?? FRAME_ANALYSIS_FALLBACKS.cameraMovement,
+  };
+}
+
+function normalizeKey(input: string) {
+  return input.toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || Array.isArray(value) || typeof value !== 'object') {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function coerceTextValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    const items = value
+      .map((item) => coerceTextValue(item))
+      .filter((item): item is string => Boolean(item));
+
+    return items.length > 0 ? items.join(', ') : null;
+  }
+
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  for (const key of ['text', 'value', 'content', 'desc', 'description']) {
+    if (key in record) {
+      const text = coerceTextValue(record[key]);
+      if (text) {
+        return text;
+      }
+    }
+  }
+
+  try {
+    const serialized = JSON.stringify(record);
+    return serialized && serialized !== '{}' ? serialized.slice(0, 200) : null;
+  } catch {
+    return null;
+  }
+}
+
+function collectObjectCandidates(rawPayload: unknown): Record<string, unknown>[] {
+  const queue: unknown[] = [rawPayload];
+  const visited = new Set<unknown>();
+  const candidates: Record<string, unknown>[] = [];
+
+  while (queue.length > 0 && candidates.length < 20) {
+    const current = queue.shift();
+
+    if (!current || typeof current !== 'object' || visited.has(current)) {
+      continue;
+    }
+
+    visited.add(current);
+
+    if (Array.isArray(current)) {
+      for (const item of current.slice(0, 8)) {
+        queue.push(item);
+      }
+      continue;
+    }
+
+    const record = current as Record<string, unknown>;
+    candidates.push(record);
+
+    for (const value of Object.values(record)) {
+      if (value && typeof value === 'object') {
+        queue.push(value);
+      }
+    }
+  }
+
+  return candidates;
+}
+
+function resolveFieldValue(
+  candidate: Record<string, unknown>,
+  candidateKeyMap: Map<string, unknown>,
+  aliases: string[],
+) {
+  for (const alias of aliases) {
+    const direct = coerceTextValue(candidate[alias]);
+    if (direct) {
+      return direct;
+    }
+  }
+
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeKey(alias);
+    const mapped = coerceTextValue(candidateKeyMap.get(normalizedAlias));
+    if (mapped) {
+      return mapped;
+    }
+  }
+
+  return null;
+}
+
+function normalizeFrameAnalysisPayload(rawPayload: unknown): FrameAnalysis | null {
+  const candidates = collectObjectCandidates(rawPayload);
+  let bestPayload: Partial<FrameAnalysis> | null = null;
+  let bestScore = -1;
+
+  for (const candidate of candidates) {
+    const candidateKeyMap = new Map<string, unknown>();
+    for (const [key, value] of Object.entries(candidate)) {
+      candidateKeyMap.set(normalizeKey(key), value);
+    }
+
+    const partial: Partial<FrameAnalysis> = {};
+    let score = 0;
+
+    for (const key of FRAME_ANALYSIS_KEYS) {
+      const value = resolveFieldValue(candidate, candidateKeyMap, FRAME_ANALYSIS_KEY_ALIASES[key]);
+      if (value) {
+        partial[key] = value;
+        score += 1;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPayload = partial;
+    }
+  }
+
+  return bestPayload ? finalizePartialFrameAnalysis(bestPayload, 5) : null;
+}
+
+function isLowSpecificityValue(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length < 4) {
+    return true;
+  }
+
+  const lowSpecificityKeywords = [
+    'unspecified',
+    'unknown',
+    'generic',
+    'neutral',
+    'n/a',
+    'not clear',
+    'not visible',
+    'cinematic style',
+    'main subject',
+    'generic scene',
+  ];
+
+  return lowSpecificityKeywords.some((keyword) => normalized.includes(keyword));
+}
+
+function getAnalysisSpecificityScore(analysis: FrameAnalysis): number {
+  return FRAME_ANALYSIS_KEYS.reduce((score, key) => {
+    return isLowSpecificityValue(analysis[key]) ? score : score + 1;
+  }, 0);
+}
+
+function extractJsonLikeFields(content: string): Partial<FrameAnalysis> | null {
+  const partial: Partial<FrameAnalysis> = {};
+  const keyValueMatches = content.matchAll(/"([^"]+)"\s*:\s*"([^"]*)"/g);
+
+  for (const match of keyValueMatches) {
+    const rawKey = match[1];
+    const rawValue = match[2];
+
+    if (typeof rawKey !== 'string' || typeof rawValue !== 'string') {
+      continue;
+    }
+
+    const normalizedKey = normalizeKey(rawKey);
+
+    for (const key of FRAME_ANALYSIS_KEYS) {
+      if (FRAME_ANALYSIS_KEY_ALIASES[key].some((alias) => normalizeKey(alias) === normalizedKey)) {
+        const value = rawValue.trim();
+        if (value) {
+          partial[key] = value;
+        }
+      }
+    }
+  }
+
+  return Object.keys(partial).length > 0 ? partial : null;
+}
+
+function cleanupLabeledValue(rawValue: string) {
+  const quotedMatches = Array.from(rawValue.matchAll(/["“]([^"”]+)["”]/g));
+  if (quotedMatches.length > 0) {
+    const quoted = quotedMatches.at(-1)?.[1]?.trim();
+    if (quoted) {
+      return quoted;
+    }
+  }
+
+  let cleaned = rawValue
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  cleaned = cleaned.split(/(?<=[.!?])\s+/)[0] ?? cleaned;
+  cleaned = cleaned.replace(/[;:,.]+$/, '').trim();
+
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function extractLabeledFieldValue(content: string, labels: string[]) {
+  let resolvedValue: string | null = null;
+
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`${escaped}\\s*:\\s*([^\\n\\r]+)`, 'gi');
+    let match: RegExpExecArray | null = regex.exec(content);
+
+    while (match) {
+      const cleaned = cleanupLabeledValue(match[1] ?? '');
+      if (cleaned) {
+        resolvedValue = cleaned;
+      }
+      match = regex.exec(content);
+    }
+  }
+
+  return resolvedValue;
+}
+
+function parseAnalysisFromLabeledText(content: string): FrameAnalysis | null {
+  const text = content
+    .replace(/<\/?think>/gi, '\n')
+    .replace(/<\/?answer>/gi, '\n')
+    .replace(/\r/g, '\n');
+
+  const partial: Partial<FrameAnalysis> = {};
+  const subject = extractLabeledFieldValue(text, ['Subject', 'subject']);
+  const scene = extractLabeledFieldValue(text, ['Scene', 'scene']);
+  const colorTone = extractLabeledFieldValue(text, ['Color Tone', 'color tone', 'ColorTone']);
+  const lighting = extractLabeledFieldValue(text, ['Lighting', 'lighting']);
+  const style = extractLabeledFieldValue(text, ['Style', 'style']);
+  const mood = extractLabeledFieldValue(text, ['Mood', 'mood']);
+  const cameraAngle = extractLabeledFieldValue(text, ['Camera Angle', 'camera angle', 'Shot Type']);
+  const cameraMovement = extractLabeledFieldValue(text, [
+    'Camera Movement',
+    'camera movement',
+    'Camera Motion',
+  ]);
+
+  if (subject) {
+    partial.subject = subject;
+  }
+  if (scene) {
+    partial.scene = scene;
+  }
+  if (colorTone) {
+    partial.colorTone = colorTone;
+  }
+  if (lighting) {
+    partial.lighting = lighting;
+  }
+  if (style) {
+    partial.style = style;
+  }
+  if (mood) {
+    partial.mood = mood;
+  }
+  if (cameraAngle) {
+    partial.cameraAngle = cameraAngle;
+  }
+  if (cameraMovement) {
+    partial.cameraMovement = cameraMovement;
+  }
+
+  return finalizePartialFrameAnalysis(partial, 5);
+}
+
 function parseAnalysisResult(content: string) {
   const cleaned = extractJsonPayload(content);
   let rawPayload: unknown;
@@ -298,6 +713,20 @@ function parseAnalysisResult(content: string) {
   try {
     rawPayload = JSON.parse(cleaned);
   } catch {
+    const jsonLikeFields = extractJsonLikeFields(cleaned);
+    const salvagedJsonLike = jsonLikeFields ? finalizePartialFrameAnalysis(jsonLikeFields, 5) : null;
+
+    if (salvagedJsonLike) {
+      console.warn('[ai-analyzer] salvaged analysis from partial JSON-like content.');
+      return salvagedJsonLike;
+    }
+
+    const labeledTextAnalysis = parseAnalysisFromLabeledText(content);
+    if (labeledTextAnalysis) {
+      console.warn('[ai-analyzer] salvaged analysis from labeled thinking text.');
+      return labeledTextAnalysis;
+    }
+
     console.error(
       '[ai-analyzer] JSON.parse failed, raw content (first 2000 chars):',
       content.slice(0, 2000),
@@ -305,17 +734,27 @@ function parseAnalysisResult(content: string) {
     throw new HttpError('AI 返回了无法解析的 JSON 结果', 502, 'OPENAI_ANALYSIS_INVALID_JSON');
   }
 
-  try {
-    return frameAnalysisSchema.parse(rawPayload);
-  } catch (error) {
-    console.error(
-      '[ai-analyzer] schema validation failed, raw payload:',
-      JSON.stringify(rawPayload).slice(0, 1000),
-      'zod error:',
-      error instanceof Error ? error.message : error,
-    );
-    throw new HttpError('AI 返回的分析结果字段不完整', 502, 'OPENAI_ANALYSIS_INVALID_SCHEMA');
+  const strictResult = frameAnalysisSchema.safeParse(rawPayload);
+  if (strictResult.success) {
+    return strictResult.data;
   }
+
+  const normalizedPayload = normalizeFrameAnalysisPayload(rawPayload);
+  if (normalizedPayload) {
+    console.warn(
+      '[ai-analyzer] schema validation fallback applied, raw payload:',
+      JSON.stringify(rawPayload).slice(0, 1000),
+    );
+    return normalizedPayload;
+  }
+
+  console.error(
+    '[ai-analyzer] schema validation failed, raw payload:',
+    JSON.stringify(rawPayload).slice(0, 1000),
+    'zod error:',
+    strictResult.error.message,
+  );
+  throw new HttpError('AI 返回的分析结果字段不完整', 502, 'OPENAI_ANALYSIS_INVALID_SCHEMA');
 }
 
 function shouldFallbackToChatCompletions(status: number, message: string) {
@@ -372,7 +811,7 @@ async function requestResponsesAnalysis(input: {
     },
     body: JSON.stringify({
       model: env.OPENAI_MODEL,
-      max_output_tokens: 400,
+      max_output_tokens: getResponsesMaxOutputTokens(),
       input: [
         {
           role: 'user',
@@ -382,6 +821,7 @@ async function requestResponsesAnalysis(input: {
               text: buildAnalysisInstruction({
                 timestamp: input.timestamp,
                 language: input.language,
+                strictSpecificity: false,
               }),
             },
             {
@@ -399,6 +839,13 @@ async function requestResponsesAnalysis(input: {
           schema: frameAnalysisJsonSchema,
         },
       },
+      ...(shouldDisableThinkingMode()
+        ? {
+            thinking: {
+              type: 'disabled',
+            },
+          }
+        : {}),
     }),
   }).catch((networkError: unknown) => {
     console.error(
@@ -450,8 +897,24 @@ async function requestChatCompletionsAnalysis(input: {
   language: PromptLanguage;
   imagePath: string;
   useSchema: boolean;
+  attempt: number;
 }): Promise<FrameAnalysis> {
   const imageDataUrl = await encodeImageAsDataUrl(input.imagePath);
+  const responseFormat = input.useSchema
+    ? shouldUseJsonObjectResponseFormat()
+      ? {
+          type: 'json_object' as const,
+        }
+      : {
+          type: 'json_schema' as const,
+          json_schema: {
+            name: OUTPUT_FORMAT_NAME,
+            strict: true,
+            schema: frameAnalysisJsonSchema,
+          },
+        }
+    : undefined;
+
   const response = await fetch(buildOpenAIApiUrl('chat/completions'), {
     method: 'POST',
     headers: {
@@ -460,7 +923,7 @@ async function requestChatCompletionsAnalysis(input: {
     },
     body: JSON.stringify({
       model: env.OPENAI_MODEL,
-      max_tokens: 400,
+      max_tokens: getChatCompletionMaxTokens(input.attempt),
       messages: [
         {
           role: 'user',
@@ -470,6 +933,7 @@ async function requestChatCompletionsAnalysis(input: {
               text: buildAnalysisInstruction({
                 timestamp: input.timestamp,
                 language: input.language,
+                strictSpecificity: input.attempt > 0,
               }),
             },
             {
@@ -481,15 +945,11 @@ async function requestChatCompletionsAnalysis(input: {
           ],
         },
       ],
-      ...(input.useSchema
+      ...(responseFormat ? { response_format: responseFormat } : {}),
+      ...(shouldDisableThinkingMode()
         ? {
-            response_format: {
-              type: 'json_schema',
-              json_schema: {
-                name: OUTPUT_FORMAT_NAME,
-                strict: true,
-                schema: frameAnalysisJsonSchema,
-              },
+            thinking: {
+              type: 'disabled',
             },
           }
         : {}),
@@ -512,6 +972,7 @@ async function requestChatCompletionsAnalysis(input: {
       return requestChatCompletionsAnalysis({
         ...input,
         useSchema: false,
+        attempt: input.attempt + 1,
       });
     }
 
@@ -536,7 +997,41 @@ async function requestChatCompletionsAnalysis(input: {
     throw new HttpError('AI 未返回可用的结构化分析结果', 502, 'OPENAI_ANALYSIS_EMPTY');
   }
 
-  return parseAnalysisResult(content);
+  try {
+    const parsed = parseAnalysisResult(content);
+    const specificityScore = getAnalysisSpecificityScore(parsed);
+
+    if (specificityScore < 6 && input.attempt < 2) {
+      console.warn(
+        '[ai-analyzer] low specificity analysis detected, retrying with stricter prompt.',
+        {
+          specificityScore,
+          attempt: input.attempt,
+        },
+      );
+      return requestChatCompletionsAnalysis({
+        ...input,
+        useSchema: false,
+        attempt: input.attempt + 1,
+      });
+    }
+
+    return parsed;
+  } catch (error) {
+    if (
+      error instanceof HttpError &&
+      ['OPENAI_ANALYSIS_INVALID_SCHEMA', 'OPENAI_ANALYSIS_INVALID_JSON'].includes(error.code) &&
+      input.attempt < 2
+    ) {
+      return requestChatCompletionsAnalysis({
+        ...input,
+        useSchema: false,
+        attempt: input.attempt + 1,
+      });
+    }
+
+    throw error;
+  }
 }
 
 async function analyzeFrameWithOpenAI(input: {
@@ -556,6 +1051,7 @@ async function analyzeFrameWithOpenAI(input: {
     return requestChatCompletionsAnalysis({
       ...input,
       useSchema: true,
+      attempt: 0,
     });
   }
 
@@ -569,6 +1065,7 @@ async function analyzeFrameWithOpenAI(input: {
     return requestChatCompletionsAnalysis({
       ...input,
       useSchema: true,
+      attempt: 0,
     });
   }
 

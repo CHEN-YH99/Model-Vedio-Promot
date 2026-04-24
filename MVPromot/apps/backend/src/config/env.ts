@@ -15,10 +15,10 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   ANALYSIS_PROVIDER: z.enum(['mock', 'openai']).default('mock'),
-  OPENAI_BASE_URL: z.string().url().default('https://api.openai.com'),
+  OPENAI_BASE_URL: z.string().url().default('https://open.bigmodel.cn/api/paas/v4'),
   OPENAI_API_KEY: z.string().optional(),
-  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
-  OPENAI_API_STYLE: z.enum(['auto', 'chat']).default('auto'),
+  OPENAI_MODEL: z.string().default('glm-4.1v-thinking-flashx'),
+  OPENAI_API_STYLE: z.enum(['auto', 'chat']).default('chat'),
   ANALYSIS_QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(1),
   ANALYSIS_MAX_FRAMES: z.coerce.number().int().positive().default(50),
 });

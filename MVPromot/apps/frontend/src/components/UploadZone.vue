@@ -245,8 +245,8 @@ watch(activeTab, (tab) => {
   urlErrorMessage.value = '';
 });
 
-function openFileDialog() {
-  if (!ensureAuthenticated()) {
+async function openFileDialog() {
+  if (!(await ensureAuthenticated())) {
     return;
   }
 
@@ -269,7 +269,7 @@ function validateFile(file: File) {
 }
 
 async function uploadFile(file: File) {
-  if (!ensureAuthenticated()) {
+  if (!(await ensureAuthenticated())) {
     return;
   }
 
@@ -337,13 +337,15 @@ async function handleFileInput(event: Event) {
   input.value = '';
 }
 
-function ensureAuthenticated() {
-  if (authStore.isAuthenticated) {
+async function ensureAuthenticated() {
+  const hasSession = await authStore.ensureFreshAccessToken();
+
+  if (hasSession && authStore.user) {
     return true;
   }
 
-  uploadStore.markError('请先登录后再上传或分析视频');
-  void router.push({
+  uploadStore.markError('登录状态已失效，请重新登录后再上传或分析视频');
+  await router.push({
     path: '/login',
     query: {
       redirect: router.currentRoute.value.fullPath,
@@ -404,7 +406,7 @@ function startDownloadProgress() {
 }
 
 async function handleParseUrl() {
-  if (!ensureAuthenticated()) {
+  if (!(await ensureAuthenticated())) {
     return;
   }
 
@@ -441,7 +443,7 @@ async function handleParseUrl() {
 }
 
 async function handleDownloadUrl() {
-  if (!ensureAuthenticated()) {
+  if (!(await ensureAuthenticated())) {
     return;
   }
 

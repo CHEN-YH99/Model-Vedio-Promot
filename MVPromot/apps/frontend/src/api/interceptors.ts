@@ -8,6 +8,7 @@ import { http } from './http';
 
 let isRefreshing = false;
 let requestQueue: Array<(token: string | null) => void> = [];
+let proactiveRefreshPromise: Promise<string | null> | null = null;
 
 function isAuthEndpoint(url: string | undefined) {
   if (!url) {
@@ -29,7 +30,16 @@ function flushQueue(token: string | null) {
 export function setupHttpInterceptors(pinia: Pinia, router: Router) {
   const authStore = useAuthStore(pinia);
 
-  http.interceptors.request.use((config) => {
+  http.interceptors.request.use(async (config) => {
+    if (!isAuthEndpoint(config.url) && authStore.accessToken) {
+      if (authStore.accessTokenExpiresSoon()) {
+        proactiveRefreshPromise ??= authStore.ensureFreshAccessToken().finally(() => {
+          proactiveRefreshPromise = null;
+        });
+        await proactiveRefreshPromise;
+      }
+    }
+
     if (authStore.accessToken) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${authStore.accessToken}`;

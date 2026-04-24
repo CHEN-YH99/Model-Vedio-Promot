@@ -16,7 +16,7 @@
 | 数据库 | PostgreSQL 16 + Prisma ORM |
 | 缓存/队列 | Redis 7 + BullMQ |
 | 视频处理 | FFmpeg / FFprobe（子进程） |
-| AI 分析 | OpenAI Vision（Responses API / Chat Completions，含 mock 降级） |
+| AI 分析 | 智谱 GLM-4.1V-Thinking-FlashX（Chat Completions，含 mock 降级） |
 | 部署 | Docker + Docker Compose |
 
 ---
@@ -126,9 +126,9 @@ npm run test:coverage    # 带覆盖率报告
 
 结论：功能上等价，选型基于框架一致性。
 
-### AI 分析的双通道 + mock 降级
+### AI 分析与 mock 降级
 
-[ai-analyzer.service.ts](apps/backend/src/services/ai-analyzer.service.ts) 先尝试 OpenAI Responses API，失败时根据错误类型回退到 Chat Completions API；`ANALYSIS_PROVIDER=mock` 时返回确定性的占位分析，用于开发/测试不消耗 API 额度。
+[ai-analyzer.service.ts](apps/backend/src/services/ai-analyzer.service.ts) 默认按智谱 `chat/completions` 接口调用 `glm-4.1v-thinking-flashx`，并使用 JSON 模式约束结构化输出；`ANALYSIS_PROVIDER=mock` 时返回确定性的占位分析，用于开发/测试不消耗 API 额度。
 
 ### 关键帧采样：场景切换 + 均匀采样合并
 
