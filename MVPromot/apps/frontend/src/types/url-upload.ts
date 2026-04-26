@@ -1,6 +1,7 @@
 export type UrlVideoPlatform = 'youtube' | 'bilibili';
-export type UrlMetaSource = 'live' | 'fallback';
-export type UrlDownloadMode = 'downloaded' | 'sample_fallback';
+export type UrlMetaSource = 'live';
+export type UrlDownloadMode = 'downloaded';
+export type UrlDownloadTaskStatus = 'PENDING' | 'DOWNLOADING' | 'DONE' | 'FAILED';
 
 export interface ParseVideoUrlPayload {
   url: string;
@@ -25,3 +26,15 @@ export interface DownloadVideoUrlResponse {
   source: UrlMetaSource;
   mode: UrlDownloadMode;
 }
+
+export interface StartDownloadVideoUrlResponse {
+  taskId: string;
+  status: UrlDownloadTaskStatus;
+  progress: number;
+  errorMessage: string | null;
+  result: DownloadVideoUrlResponse | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DownloadVideoUrlStatusResponse = StartDownloadVideoUrlResponse;

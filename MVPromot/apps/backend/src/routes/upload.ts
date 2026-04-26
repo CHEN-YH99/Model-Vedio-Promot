@@ -4,6 +4,7 @@ import {
   uploadController,
   uploadMetaController,
   uploadUrlDownloadController,
+  uploadUrlDownloadStatusController,
   uploadUrlParseController,
 } from '../controllers/upload.controller.js';
 import { authenticate } from '../middlewares/authenticate.js';
@@ -25,5 +26,10 @@ export function registerUploadRoutes(server: FastifyInstance) {
       preHandler: [authenticate, requireCopyrightAgreement],
     },
     uploadUrlDownloadController,
+  );
+  server.get(
+    '/api/upload/url/download/:taskId/status',
+    { preHandler: authenticate },
+    uploadUrlDownloadStatusController,
   );
 }

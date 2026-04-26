@@ -2,7 +2,11 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../config/env.js';
-import { downloadVideoByUrl, parseVideoLinkMeta } from '../services/upload-url.service.js';
+import {
+  enqueueUrlDownloadTask,
+  getUrlDownloadTaskStatus,
+} from '../services/upload-url-download.service.js';
+import { parseVideoLinkMeta } from '../services/upload-url.service.js';
 import { getUploadedVideoMeta, saveUploadedVideo } from '../services/upload.service.js';
 import { HttpError } from '../utils/http-error.js';
 
@@ -16,6 +20,10 @@ const uploadUrlParseBodySchema = z.object({
 
 const uploadUrlDownloadBodySchema = z.object({
   url: z.string().trim().url('视频链接格式不正确'),
+});
+
+const uploadUrlDownloadStatusParamsSchema = z.object({
+  taskId: z.string().min(1),
 });
 
 function toHttpError(error: unknown): HttpError {
@@ -122,13 +130,40 @@ export async function uploadUrlDownloadController(request: FastifyRequest, reply
 
   try {
     const body = uploadUrlDownloadBodySchema.parse(request.body);
-    const result = await downloadVideoByUrl({
+    const task = await enqueueUrlDownloadTask({
       userId: request.auth.userId,
       url: body.url,
-      uploadDir: env.UPLOAD_DIR,
     });
 
-    return reply.status(202).send(result);
+    return reply.status(202).send(task);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function uploadUrlDownloadStatusController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.auth) {
+    return reply.status(401).send({
+      message: '未登录',
+      code: 'UNAUTHORIZED',
+    });
+  }
+
+  try {
+    const params = uploadUrlDownloadStatusParamsSchema.parse(request.params);
+    const status = await getUrlDownloadTaskStatus({
+      taskId: params.taskId,
+      userId: request.auth.userId,
+    });
+
+    return reply.send(status);
   } catch (error) {
     const httpError = toHttpError(error);
     return reply.status(httpError.statusCode).send({

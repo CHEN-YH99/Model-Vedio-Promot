@@ -93,18 +93,24 @@
           />
         </label>
 
-        <label
-          class="flex items-start gap-2 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100"
-        >
-          <input
-            v-model="agreedToTerms"
-            type="checkbox"
-            class="mt-0.5 h-4 w-4 rounded border-zinc-500 bg-zinc-900 text-emerald-400"
-          />
-          <span>
-            我确认该视频为本人拥有或已获授权用于 AI 创作分析，并同意平台仅用于解析公开画面。
-          </span>
-        </label>
+        <div class="rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-3 text-xs text-amber-100">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p>版权声明：仅处理你本人拥有或已获授权的视频内容。</p>
+            <button
+              type="button"
+              class="rounded-md border border-amber-200/50 px-2 py-1 text-[11px] text-amber-50 transition hover:border-amber-100"
+              @click="openAgreementModal()"
+            >
+              查看并勾选声明
+            </button>
+          </div>
+          <p class="mt-2">
+            当前状态：
+            <span :class="agreedToTerms ? 'text-emerald-200' : 'text-amber-200'">
+              {{ agreedToTerms ? '已勾选并同意' : '未勾选' }}
+            </span>
+          </p>
+        </div>
 
         <div class="flex flex-wrap items-center gap-3">
           <button
@@ -147,13 +153,11 @@
             <span class="text-emerald-200">清晰度：</span>
             {{ parsedMeta.qualities.join(' / ') || '未知' }}
           </p>
-          <p v-if="parsedMeta.source === 'fallback'" class="mt-2 text-xs text-amber-200">
-            当前为开发回退数据，正式环境可切换真实解析源。
-          </p>
         </div>
 
         <div v-if="downloadLoading" class="space-y-2">
           <p class="text-sm text-zinc-200">下载处理中 {{ pseudoDownloadProgress }}%</p>
+          <p v-if="downloadTaskId" class="text-xs text-zinc-400">任务ID：{{ downloadTaskId }}</p>
           <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
             <div
               class="h-full bg-emerald-400 transition-all duration-300"
@@ -170,15 +174,71 @@
         </p>
       </div>
     </template>
+
+    <div
+      v-if="agreementModalVisible"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="版权声明确认"
+    >
+      <button
+        type="button"
+        class="absolute inset-0 bg-black/70"
+        aria-label="关闭版权声明弹窗"
+        @click="closeAgreementModal"
+      ></button>
+
+      <div class="relative z-10 w-full max-w-lg rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-2xl">
+        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">版权声明</p>
+        <h3 class="mt-2 text-lg font-semibold text-white">未勾选声明前，不能继续解析或下载</h3>
+        <p class="mt-3 text-sm leading-6 text-zinc-300">
+          我确认该视频为本人拥有或已获得授权用于 AI 创作分析，并同意平台仅解析公开画面，不用于传播原始视频内容。
+        </p>
+
+        <label
+          class="mt-4 flex items-start gap-2 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100"
+        >
+          <input
+            v-model="agreementDraftChecked"
+            type="checkbox"
+            class="mt-0.5 h-4 w-4 rounded border-zinc-500 bg-zinc-900 text-emerald-400"
+          />
+          <span>我已阅读并同意以上版权声明</span>
+        </label>
+
+        <div class="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            class="rounded-lg border border-white/20 px-4 py-2 text-sm text-zinc-200 transition hover:border-white/40"
+            @click="closeAgreementModal"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            :disabled="!agreementDraftChecked"
+            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="confirmAgreementAndContinue"
+          >
+            同意并继续
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import axios from 'axios';
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { downloadVideoUrlRequest, parseVideoUrlRequest } from '@/api/url-upload';
+import {
+  getDownloadVideoUrlStatusRequest,
+  parseVideoUrlRequest,
+  startDownloadVideoUrlRequest,
+} from '@/api/url-upload';
 import { http } from '@/api/http';
 import { useAuthStore } from '@/stores/auth';
 import { useUploadStore } from '@/stores/upload';
@@ -186,6 +246,7 @@ import type { ParsedVideoUrlResponse, UrlVideoPlatform } from '@/types/url-uploa
 
 const ALLOWED_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'webm']);
 type UploadTab = 'local' | 'url';
+type PendingUrlAction = 'parse' | 'download' | null;
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -197,13 +258,19 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const urlInput = ref('');
 const agreedToTerms = ref(false);
+const agreementModalVisible = ref(false);
+const agreementDraftChecked = ref(false);
+const pendingUrlAction = ref<PendingUrlAction>(null);
 const parseLoading = ref(false);
 const downloadLoading = ref(false);
+const downloadTaskId = ref('');
 const parsedMeta = ref<ParsedVideoUrlResponse | null>(null);
 const urlErrorMessage = ref('');
 const pseudoDownloadProgress = ref(0);
 
 let downloadProgressTimer: ReturnType<typeof setInterval> | null = null;
+let downloadStatusTimer: ReturnType<typeof setInterval> | null = null;
+let downloadStatusPolling = false;
 
 const maxFileSize = computed(() => {
   if (!authStore.user || authStore.user.plan === 'FREE') {
@@ -214,21 +281,11 @@ const maxFileSize = computed(() => {
 });
 
 const canParse = computed(() => {
-  return (
-    Boolean(urlInput.value.trim()) &&
-    agreedToTerms.value &&
-    !parseLoading.value &&
-    !downloadLoading.value
-  );
+  return Boolean(urlInput.value.trim()) && !parseLoading.value && !downloadLoading.value;
 });
 
 const canDownload = computed(() => {
-  return (
-    Boolean(parsedMeta.value) &&
-    agreedToTerms.value &&
-    !parseLoading.value &&
-    !downloadLoading.value
-  );
+  return Boolean(parsedMeta.value) && !parseLoading.value && !downloadLoading.value;
 });
 
 watch(urlInput, () => {
@@ -242,6 +299,11 @@ watch(activeTab, (tab) => {
     return;
   }
 
+  clearDownloadStatusPolling();
+  stopDownloadProgress(false);
+  downloadLoading.value = false;
+  downloadTaskId.value = '';
+  closeAgreementModal();
   urlErrorMessage.value = '';
 });
 
@@ -354,12 +416,47 @@ async function ensureAuthenticated() {
   return false;
 }
 
-function ensureAgreement() {
+function openAgreementModal(action: Exclude<PendingUrlAction, null> | null = null) {
+  pendingUrlAction.value = action;
+  agreementDraftChecked.value = agreedToTerms.value;
+  agreementModalVisible.value = true;
+}
+
+function closeAgreementModal() {
+  agreementModalVisible.value = false;
+  agreementDraftChecked.value = agreedToTerms.value;
+  pendingUrlAction.value = null;
+}
+
+async function confirmAgreementAndContinue() {
+  if (!agreementDraftChecked.value) {
+    urlErrorMessage.value = '请先勾选并同意版权声明';
+    return;
+  }
+
+  agreedToTerms.value = true;
+  agreementModalVisible.value = false;
+
+  const action = pendingUrlAction.value;
+  pendingUrlAction.value = null;
+
+  if (action === 'parse') {
+    await handleParseUrl();
+    return;
+  }
+
+  if (action === 'download') {
+    await handleDownloadUrl();
+  }
+}
+
+function ensureAgreement(action: Exclude<PendingUrlAction, null>) {
   if (agreedToTerms.value) {
     return true;
   }
 
-  urlErrorMessage.value = '请先勾选版权声明后再继续';
+  urlErrorMessage.value = '请先在版权声明弹窗中勾选同意后再继续';
+  openAgreementModal(action);
   return false;
 }
 
@@ -397,7 +494,9 @@ function stopDownloadProgress(success: boolean) {
 }
 
 function startDownloadProgress() {
-  stopDownloadProgress(false);
+  if (downloadProgressTimer) {
+    clearInterval(downloadProgressTimer);
+  }
   pseudoDownloadProgress.value = 6;
 
   downloadProgressTimer = setInterval(() => {
@@ -405,12 +504,86 @@ function startDownloadProgress() {
   }, 260);
 }
 
+function clearDownloadStatusPolling() {
+  if (!downloadStatusTimer) {
+    return;
+  }
+
+  clearInterval(downloadStatusTimer);
+  downloadStatusTimer = null;
+}
+
+async function checkDownloadTaskStatus(taskId: string) {
+  if (downloadStatusPolling) {
+    return;
+  }
+
+  downloadStatusPolling = true;
+
+  try {
+    const status = await getDownloadVideoUrlStatusRequest(taskId);
+    pseudoDownloadProgress.value = Math.max(pseudoDownloadProgress.value, status.progress);
+
+    if (status.status === 'DONE' && status.result) {
+      clearDownloadStatusPolling();
+      stopDownloadProgress(true);
+      downloadLoading.value = false;
+      downloadTaskId.value = '';
+      uploadStore.markSuccess(status.result.fileId);
+      await router.push(`/analyze/${status.result.fileId}`);
+      return;
+    }
+
+    if (status.status === 'DONE' && !status.result) {
+      clearDownloadStatusPolling();
+      stopDownloadProgress(false);
+      downloadLoading.value = false;
+      downloadTaskId.value = '';
+      urlErrorMessage.value = '下载任务完成但未返回文件信息，请重试';
+      return;
+    }
+
+    if (status.status === 'FAILED') {
+      clearDownloadStatusPolling();
+      stopDownloadProgress(false);
+      downloadLoading.value = false;
+      downloadTaskId.value = '';
+      urlErrorMessage.value = status.errorMessage ?? '链接下载失败，请稍后重试';
+    }
+  } catch (error) {
+    clearDownloadStatusPolling();
+    stopDownloadProgress(false);
+    downloadLoading.value = false;
+    downloadTaskId.value = '';
+
+    if (axios.isAxiosError(error)) {
+      const message =
+        (error.response?.data as { message?: string })?.message ?? '下载任务状态读取失败';
+      urlErrorMessage.value = message;
+    } else {
+      urlErrorMessage.value = '下载任务状态读取失败';
+    }
+  } finally {
+    downloadStatusPolling = false;
+  }
+}
+
+function startDownloadStatusPolling(taskId: string) {
+  clearDownloadStatusPolling();
+  downloadTaskId.value = taskId;
+
+  void checkDownloadTaskStatus(taskId);
+  downloadStatusTimer = setInterval(() => {
+    void checkDownloadTaskStatus(taskId);
+  }, 1200);
+}
+
 async function handleParseUrl() {
   if (!(await ensureAuthenticated())) {
     return;
   }
 
-  if (!ensureAgreement()) {
+  if (!ensureAgreement('parse')) {
     return;
   }
 
@@ -427,7 +600,7 @@ async function handleParseUrl() {
   try {
     parsedMeta.value = await parseVideoUrlRequest({
       url: currentUrl,
-      agreedToTerms: true,
+      agreedToTerms: agreedToTerms.value,
     });
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -447,7 +620,7 @@ async function handleDownloadUrl() {
     return;
   }
 
-  if (!ensureAgreement()) {
+  if (!ensureAgreement('download')) {
     return;
   }
 
@@ -465,20 +638,40 @@ async function handleDownloadUrl() {
   }
 
   downloadLoading.value = true;
+  clearDownloadStatusPolling();
+  downloadStatusPolling = false;
+  downloadTaskId.value = '';
   urlErrorMessage.value = '';
   startDownloadProgress();
 
   try {
-    const result = await downloadVideoUrlRequest({
+    const task = await startDownloadVideoUrlRequest({
       url: currentUrl,
-      agreedToTerms: true,
+      agreedToTerms: agreedToTerms.value,
     });
+    pseudoDownloadProgress.value = Math.max(pseudoDownloadProgress.value, task.progress);
 
-    stopDownloadProgress(true);
-    uploadStore.markSuccess(result.fileId);
-    await router.push(`/analyze/${result.fileId}`);
+    if (task.status === 'FAILED') {
+      stopDownloadProgress(false);
+      downloadLoading.value = false;
+      urlErrorMessage.value = task.errorMessage ?? '链接下载失败，请稍后重试';
+      return;
+    }
+
+    if (task.status === 'DONE' && task.result) {
+      stopDownloadProgress(true);
+      downloadLoading.value = false;
+      uploadStore.markSuccess(task.result.fileId);
+      await router.push(`/analyze/${task.result.fileId}`);
+      return;
+    }
+
+    startDownloadStatusPolling(task.taskId);
   } catch (error) {
+    clearDownloadStatusPolling();
     stopDownloadProgress(false);
+    downloadLoading.value = false;
+    downloadTaskId.value = '';
 
     if (axios.isAxiosError(error)) {
       const message =
@@ -487,8 +680,11 @@ async function handleDownloadUrl() {
     } else {
       urlErrorMessage.value = '链接下载失败，请稍后重试';
     }
-  } finally {
-    downloadLoading.value = false;
   }
 }
+
+onUnmounted(() => {
+  clearDownloadStatusPolling();
+  stopDownloadProgress(false);
+});
 </script>

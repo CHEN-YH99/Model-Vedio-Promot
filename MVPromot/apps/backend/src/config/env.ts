@@ -20,6 +20,7 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().default('glm-4.1v-thinking-flashx'),
   OPENAI_API_STYLE: z.enum(['auto', 'chat']).default('chat'),
   ANALYSIS_QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(1),
+  UPLOAD_URL_QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(1),
   ANALYSIS_MAX_FRAMES: z.coerce.number().int().positive().default(50),
 });
 

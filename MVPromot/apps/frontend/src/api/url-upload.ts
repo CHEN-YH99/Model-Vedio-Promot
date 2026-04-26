@@ -1,8 +1,9 @@
 import { http } from './http';
 import type {
-  DownloadVideoUrlResponse,
+  DownloadVideoUrlStatusResponse,
   ParseVideoUrlPayload,
   ParsedVideoUrlResponse,
+  StartDownloadVideoUrlResponse,
 } from '@/types/url-upload';
 
 export async function parseVideoUrlRequest(payload: ParseVideoUrlPayload) {
@@ -10,7 +11,14 @@ export async function parseVideoUrlRequest(payload: ParseVideoUrlPayload) {
   return data;
 }
 
-export async function downloadVideoUrlRequest(payload: ParseVideoUrlPayload) {
-  const { data } = await http.post<DownloadVideoUrlResponse>('/api/upload/url/download', payload);
+export async function startDownloadVideoUrlRequest(payload: ParseVideoUrlPayload) {
+  const { data } = await http.post<StartDownloadVideoUrlResponse>('/api/upload/url/download', payload);
+  return data;
+}
+
+export async function getDownloadVideoUrlStatusRequest(taskId: string) {
+  const { data } = await http.get<DownloadVideoUrlStatusResponse>(
+    `/api/upload/url/download/${taskId}/status`,
+  );
   return data;
 }

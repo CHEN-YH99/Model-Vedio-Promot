@@ -112,6 +112,40 @@ npm run test:coverage    # 带覆盖率报告
 
 覆盖率目标：核心业务逻辑 ≥ 80%（闯关 DoD 要求）。
 
+### 2-1 链接导入联调脚本
+
+脚本文件：`apps/backend/tests/upload-url.e2e.mjs`
+
+用途：
+
+- 覆盖 YouTube/Bilibili 的成功与失败场景
+- 验证异步下载任务流：创建任务 -> 轮询状态 -> DONE/FAILED
+
+执行前提：
+
+1. 后端服务已启动（默认 `http://127.0.0.1:3000`）
+2. PostgreSQL、Redis、FFmpeg 可用
+3. 提供可公开访问的视频链接（成功场景）
+
+运行示例：
+
+```bash
+cd apps/backend
+set E2E_BASE_URL=http://127.0.0.1:3000
+set E2E_YOUTUBE_SUCCESS_URL=https://www.youtube.com/watch?v=xxxxxxxxxxx
+set E2E_BILIBILI_SUCCESS_URL=https://www.bilibili.com/video/BVxxxxxxxxxx
+npm run test:e2e:upload-url
+```
+
+可选环境变量：
+
+- `E2E_EMAIL`：联调账号邮箱（默认随机）
+- `E2E_PASSWORD`：联调账号密码（默认 `Passw0rd2026`）
+- `E2E_YOUTUBE_FAIL_URL`：YouTube 失败用例链接（默认 `https://www.youtube.com/watch`）
+- `E2E_BILIBILI_FAIL_URL`：Bilibili 失败用例链接（默认 `https://www.bilibili.com/video/not-a-bv-id`）
+- `E2E_DOWNLOAD_TIMEOUT_MS`：下载任务超时（默认 `120000`）
+- `E2E_DOWNLOAD_POLL_INTERVAL_MS`：轮询间隔（默认 `1500`）
+
 ---
 
 ## 技术决策
