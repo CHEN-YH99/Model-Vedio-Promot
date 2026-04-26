@@ -68,6 +68,10 @@
 
     <main class="shell__main" :class="{ 'shell__main--home': isHome }">
       <RouterView />
+      <footer class="shell__footer vtp-page">
+        <RouterLink class="shell__footer-link" to="/privacy">隐私政策</RouterLink>
+        <RouterLink class="shell__footer-link" to="/terms">服务条款</RouterLink>
+      </footer>
     </main>
   </div>
 </template>
@@ -309,6 +313,27 @@ async function handleLogout() {
 
 .shell__main--home {
   padding-top: 0;
+}
+
+.shell__footer {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.shell__footer-link {
+  border-radius: 999px;
+  border: 1px solid rgba(140, 167, 255, 0.2);
+  padding: 0.4rem 0.85rem;
+  color: rgba(214, 223, 244, 0.84);
+  font-size: 0.78rem;
+  transition: border-color 180ms ease;
+}
+
+.shell__footer-link:hover {
+  border-color: rgba(214, 223, 244, 0.55);
 }
 
 @media (max-width: 1023px) {

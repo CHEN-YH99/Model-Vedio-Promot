@@ -5,6 +5,7 @@ import { env } from './config/env.js';
 import { prisma } from './plugins/prisma.js';
 import { redis } from './plugins/redis.js';
 import { startAnalysisWorker } from './services/analysis-worker.service.js';
+import { startDataDeletionWorker } from './services/data-deletion-worker.service.js';
 import { startUploadCleanupJob } from './services/upload-cleanup.service.js';
 import { startUploadUrlDownloadWorker } from './services/upload-url-worker.service.js';
 
@@ -13,6 +14,7 @@ async function bootstrap() {
 
   const server = await buildServer();
   let stopCleanupJob = () => {};
+  let stopDataDeletionWorker = () => {};
   let stopAnalysisWorker: () => Promise<void> = async () => {};
   let stopUploadUrlWorker: () => Promise<void> = async () => {};
 
@@ -22,6 +24,7 @@ async function bootstrap() {
       port: env.PORT,
     });
     stopCleanupJob = startUploadCleanupJob(server.log);
+    stopDataDeletionWorker = startDataDeletionWorker(server.log);
     stopAnalysisWorker = startAnalysisWorker(server.log);
     stopUploadUrlWorker = startUploadUrlDownloadWorker(server.log);
   } catch (error) {
@@ -31,6 +34,7 @@ async function bootstrap() {
 
   const shutdown = async () => {
     stopCleanupJob();
+    stopDataDeletionWorker();
     await stopUploadUrlWorker();
     await stopAnalysisWorker();
     await server.close();

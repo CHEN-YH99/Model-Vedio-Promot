@@ -1,9 +1,12 @@
 ﻿import { defineStore } from 'pinia';
 
 import {
+  getGoogleOAuthStartUrl,
+  getWeChatOAuthStartUrl,
   loginRequest,
   logoutRequest,
   meRequest,
+  oauthExchangeRequest,
   refreshRequest,
   registerRequest,
 } from '@/api/auth';
@@ -106,6 +109,20 @@ export const useAuthStore = defineStore('auth', {
       const payload = await loginRequest(input);
       this.applyAuth(payload);
       return payload;
+    },
+
+    async exchangeOAuthCode(code: string) {
+      const payload = await oauthExchangeRequest(code);
+      this.applyAuth(payload);
+      return payload;
+    },
+
+    getGoogleOAuthStartUrl(redirectPath?: string) {
+      return getGoogleOAuthStartUrl(redirectPath);
+    },
+
+    getWeChatOAuthStartUrl(redirectPath?: string) {
+      return getWeChatOAuthStartUrl(redirectPath);
     },
 
     async fetchMe() {

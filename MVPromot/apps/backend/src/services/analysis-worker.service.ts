@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import { env } from '../config/env.js';
 import { createAnalysisWorker } from '../queues/analysis.queue.js';
 import { prisma } from '../plugins/prisma.js';
+import { createAnalysisCacheKey, setCachedAnalysisId } from './analysis-cache.service.js';
 import { analyzeFrame } from './ai-analyzer.service.js';
 import {
   extractStyleTags,
@@ -145,6 +146,13 @@ async function processAnalysis(input: {
     styleTags,
     errorMessage: null,
   });
+
+  const cacheKey = createAnalysisCacheKey({
+    userId: input.userId,
+    fileId: input.fileId,
+    config: input.config,
+  });
+  await setCachedAnalysisId(cacheKey, input.analysisId);
 }
 
 export function startAnalysisWorker(logger: FastifyBaseLogger) {

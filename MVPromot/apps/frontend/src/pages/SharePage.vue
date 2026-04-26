@@ -1,5 +1,5 @@
 <template>
-  <section class="space-y-6">
+  <section class="vtp-page px-0 py-6 sm:py-8 lg:py-10 space-y-6">
     <header
       class="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_42%),linear-gradient(135deg,_rgba(255,255,255,0.08),_rgba(255,255,255,0.03))] p-5 sm:p-6"
     >
@@ -11,9 +11,27 @@
 
     <div
       v-if="loading"
-      class="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-zinc-300"
+      class="space-y-5"
     >
-      正在加载分享内容...
+      <div class="h-12 w-40 animate-pulse rounded-xl bg-white/8"></div>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div class="rounded-[28px] border border-white/10 bg-white/5 p-4">
+          <div class="h-36 animate-pulse rounded-2xl bg-white/8"></div>
+          <div class="mt-3 h-4 w-28 animate-pulse rounded bg-white/8"></div>
+        </div>
+        <div class="space-y-4">
+          <div class="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div class="h-5 w-36 animate-pulse rounded bg-white/8"></div>
+            <div class="mt-4 h-4 w-full animate-pulse rounded bg-white/8"></div>
+            <div class="mt-2 h-4 w-4/5 animate-pulse rounded bg-white/8"></div>
+          </div>
+          <div class="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div class="h-5 w-36 animate-pulse rounded bg-white/8"></div>
+            <div class="mt-4 h-4 w-full animate-pulse rounded bg-white/8"></div>
+            <div class="mt-2 h-4 w-3/4 animate-pulse rounded bg-white/8"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <p
@@ -73,10 +91,11 @@
               "
               @click="selectedFrameIndex = index"
             >
-              <img
+              <LazyImage
                 :src="toImageUrl(frame.thumbUrl)"
                 alt="关键帧缩略图"
-                class="aspect-video w-full rounded-[14px] object-cover"
+                image-class="aspect-video w-full rounded-[14px] object-cover"
+                wrapper-class="relative overflow-hidden rounded-[14px]"
               />
               <p class="mt-3 text-sm font-medium text-white">{{ formatTimestamp(frame.timestamp) }}</p>
               <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
@@ -123,6 +142,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { apiBaseUrl } from '@/api/http';
+import LazyImage from '@/components/LazyImage.vue';
 import { getSharedAnalysisResultRequest } from '@/api/share';
 import type {
   PlatformPromptContent,

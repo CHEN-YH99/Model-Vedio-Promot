@@ -67,6 +67,63 @@
         </RouterLink>
       </article>
     </div>
+
+    <article class="vtp-panel mt-6 rounded-[1.75rem] p-6">
+      <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">数据删除（合规）</p>
+      <h2 class="mt-3 font-[var(--font-display)] text-2xl font-semibold text-white">账号数据删除申请</h2>
+      <p class="mt-2 text-sm text-slate-300">
+        提交后进入 {{ graceDays }} 天冷静期，到期自动执行删除。冷静期内可撤销申请。
+      </p>
+
+      <div v-if="deletionLoading" class="mt-4 text-sm text-slate-300">正在读取删除申请状态...</div>
+
+      <p
+        v-else-if="deletionError"
+        class="mt-4 rounded-lg border border-rose-400/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200"
+      >
+        {{ deletionError }}
+      </p>
+
+      <template v-else>
+        <div v-if="deletionRequest" class="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <p class="text-sm text-slate-200">当前状态：{{ deletionStatusLabel(deletionRequest.status) }}</p>
+          <p class="mt-1 text-xs text-slate-400">申请时间：{{ formatDateTime(deletionRequest.requestedAt) }}</p>
+          <p class="mt-1 text-xs text-slate-400">执行时间：{{ formatDateTime(deletionRequest.executeAfter) }}</p>
+          <p v-if="deletionRequest.reason" class="mt-1 text-xs text-slate-400">
+            申请备注：{{ deletionRequest.reason }}
+          </p>
+          <p v-if="deletionRequest.failureReason" class="mt-1 text-xs text-rose-300">
+            失败原因：{{ deletionRequest.failureReason }}
+          </p>
+
+          <button
+            v-if="deletionRequest.status === 'PENDING'"
+            class="vtp-button vtp-button--ghost mt-3"
+            :disabled="deletionCanceling"
+            @click="cancelDeletionRequest"
+          >
+            {{ deletionCanceling ? '撤销中...' : '撤销删除申请' }}
+          </button>
+        </div>
+
+        <div v-if="deletionRequest?.status !== 'PENDING'" class="mt-5 space-y-3">
+          <textarea
+            v-model.trim="deletionReason"
+            rows="3"
+            class="w-full rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/70"
+            maxlength="500"
+            placeholder="可选：填写删除原因（最多 500 字）"
+          ></textarea>
+          <button
+            class="vtp-button"
+            :disabled="deletionSubmitting"
+            @click="submitDeletionRequest"
+          >
+            {{ deletionSubmitting ? '提交中...' : '提交删除申请' }}
+          </button>
+        </div>
+      </template>
+    </article>
   </section>
 </template>
 
@@ -75,13 +132,26 @@ import axios from 'axios';
 import { computed, onMounted, ref } from 'vue';
 
 import { getAnalysisQuotaRequest } from '@/api/analysis';
+import {
+  cancelDataDeletionRequestRequest,
+  createDataDeletionRequestRequest,
+  getDataDeletionRequestStatusRequest,
+} from '@/api/account';
 import { useAuthStore } from '@/stores/auth';
 import type { AnalysisQuotaResponse } from '@/types/analysis';
+import type { DataDeletionRequestResponse, DataDeletionStatus } from '@/types/account';
 
 const authStore = useAuthStore();
 const loadingQuota = ref(false);
 const quotaError = ref('');
 const quota = ref<AnalysisQuotaResponse | null>(null);
+const graceDays = 7;
+const deletionLoading = ref(false);
+const deletionSubmitting = ref(false);
+const deletionCanceling = ref(false);
+const deletionError = ref('');
+const deletionReason = ref('');
+const deletionRequest = ref<DataDeletionRequestResponse | null>(null);
 
 const createdAtText = computed(() => {
   const createdAt = authStore.user?.createdAt;
@@ -152,6 +222,27 @@ const resetAtText = computed(() => {
 
 const shortcuts = ['配额实时状态', '历史分析记录', '升级入口', '账号信息'];
 
+function formatDateTime(value: string) {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString('zh-CN', { hour12: false });
+}
+
+function deletionStatusLabel(status: DataDeletionStatus) {
+  const map: Record<DataDeletionStatus, string> = {
+    PENDING: '待执行',
+    COMPLETED: '已完成',
+    CANCELED: '已撤销',
+    FAILED: '执行失败',
+  };
+
+  return map[status];
+}
+
 async function fetchQuota() {
   loadingQuota.value = true;
   quotaError.value = '';
@@ -170,7 +261,67 @@ async function fetchQuota() {
   }
 }
 
+async function fetchDeletionRequest() {
+  deletionLoading.value = true;
+  deletionError.value = '';
+
+  try {
+    const response = await getDataDeletionRequestStatusRequest();
+    deletionRequest.value = response.request;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      deletionError.value =
+        (error.response?.data as { message?: string })?.message ?? '读取删除申请状态失败';
+    } else {
+      deletionError.value = '读取删除申请状态失败';
+    }
+  } finally {
+    deletionLoading.value = false;
+  }
+}
+
+async function submitDeletionRequest() {
+  deletionSubmitting.value = true;
+  deletionError.value = '';
+
+  try {
+    const response = await createDataDeletionRequestRequest({
+      reason: deletionReason.value || undefined,
+    });
+    deletionRequest.value = response;
+    deletionReason.value = '';
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      deletionError.value =
+        (error.response?.data as { message?: string })?.message ?? '提交删除申请失败';
+    } else {
+      deletionError.value = '提交删除申请失败';
+    }
+  } finally {
+    deletionSubmitting.value = false;
+  }
+}
+
+async function cancelDeletionRequest() {
+  deletionCanceling.value = true;
+  deletionError.value = '';
+
+  try {
+    deletionRequest.value = await cancelDataDeletionRequestRequest();
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      deletionError.value =
+        (error.response?.data as { message?: string })?.message ?? '撤销删除申请失败';
+    } else {
+      deletionError.value = '撤销删除申请失败';
+    }
+  } finally {
+    deletionCanceling.value = false;
+  }
+}
+
 onMounted(() => {
   void fetchQuota();
+  void fetchDeletionRequest();
 });
 </script>

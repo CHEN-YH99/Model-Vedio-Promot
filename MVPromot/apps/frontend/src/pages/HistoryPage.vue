@@ -11,9 +11,24 @@
     <div class="mt-6 space-y-4">
       <div
         v-if="loading"
-        class="vtp-panel rounded-[1.5rem] p-6 text-sm text-slate-300"
+        class="space-y-4"
       >
-        正在加载历史记录...
+        <div
+          v-for="index in 3"
+          :key="`history-skeleton-${index}`"
+          class="vtp-panel grid animate-pulse gap-4 rounded-[1.75rem] p-5 md:grid-cols-[220px_1fr_auto]"
+        >
+          <div class="aspect-video rounded-[1.25rem] bg-white/8"></div>
+          <div class="space-y-3 py-2">
+            <div class="h-5 w-40 rounded bg-white/10"></div>
+            <div class="h-4 w-64 rounded bg-white/10"></div>
+            <div class="h-4 w-52 rounded bg-white/10"></div>
+          </div>
+          <div class="flex items-center justify-end gap-2">
+            <div class="h-9 w-20 rounded-full bg-white/10"></div>
+            <div class="h-9 w-20 rounded-full bg-white/10"></div>
+          </div>
+        </div>
       </div>
 
       <p
@@ -33,11 +48,12 @@
         class="vtp-panel grid gap-4 rounded-[1.75rem] p-5 md:grid-cols-[220px_1fr_auto] md:items-center"
       >
         <div class="overflow-hidden rounded-[1.25rem] border border-white/10 bg-white/5">
-          <img
+          <LazyImage
             v-if="item.coverThumbUrl"
             :src="toImageUrl(item.coverThumbUrl)"
             alt="分析封面"
-            class="aspect-video w-full object-cover"
+            image-class="aspect-video w-full object-cover"
+            wrapper-class="relative overflow-hidden"
           />
           <div v-else class="flex aspect-video items-center justify-center text-xs text-slate-400">
             无关键帧封面
@@ -110,6 +126,7 @@ import { useRouter } from 'vue-router';
 
 import { deleteAnalysisRequest, getAnalysisHistoryRequest } from '@/api/analysis';
 import { apiBaseUrl } from '@/api/http';
+import LazyImage from '@/components/LazyImage.vue';
 import type { AnalysisHistoryItem, AnalysisStatus, PromptLanguage, PromptPlatform } from '@/types/analysis';
 
 const router = useRouter();

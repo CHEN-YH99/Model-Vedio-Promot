@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import type { AuthPayload, AuthUser } from '@/types/auth';
+import type { AuthPayload, AuthUser, OAuthExchangePayload } from '@/types/auth';
 import { apiBaseUrl } from './http';
 
 const authClient = axios.create({
@@ -63,4 +63,35 @@ export async function logoutRequest(input: {
       },
     },
   );
+}
+
+function buildOAuthStartUrl(provider: 'google' | 'wechat', redirectPath?: string) {
+  const basePath = `/api/auth/oauth/${provider}/start`;
+
+  if (!redirectPath) {
+    return apiBaseUrl ? `${apiBaseUrl}${basePath}` : basePath;
+  }
+
+  const params = new URLSearchParams({
+    redirect: redirectPath,
+  });
+  const pathWithQuery = `${basePath}?${params.toString()}`;
+
+  return apiBaseUrl ? `${apiBaseUrl}${pathWithQuery}` : pathWithQuery;
+}
+
+export function getGoogleOAuthStartUrl(redirectPath?: string) {
+  return buildOAuthStartUrl('google', redirectPath);
+}
+
+export function getWeChatOAuthStartUrl(redirectPath?: string) {
+  return buildOAuthStartUrl('wechat', redirectPath);
+}
+
+export async function oauthExchangeRequest(code: string): Promise<OAuthExchangePayload> {
+  const { data } = await authClient.post<OAuthExchangePayload>('/api/auth/oauth/exchange', {
+    code,
+  });
+
+  return data;
 }

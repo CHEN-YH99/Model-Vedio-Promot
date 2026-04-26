@@ -11,7 +11,16 @@ import {
   registerWithEmail,
   revokeSession,
 } from '../services/auth.service.js';
+import {
+  completeGoogleOAuthCallback,
+  completeWeChatOAuthCallback,
+  createGoogleOAuthStartUrl,
+  createWeChatOAuthStartUrl,
+  exchangeOAuthLoginCode,
+  getOAuthErrorRedirectUrl,
+} from '../services/oauth.service.js';
 import { HttpError } from '../utils/http-error.js';
+import { sanitizePlainText } from '../utils/sanitize.js';
 
 const registerBodySchema = z.object({
   email: z
@@ -43,6 +52,20 @@ const logoutBodySchema = z.object({
   refreshToken: z.string().min(1).optional(),
 });
 
+const oauthStartQuerySchema = z.object({
+  redirect: z.string().trim().optional(),
+});
+
+const oauthCallbackQuerySchema = z.object({
+  code: z.string().trim().min(1).optional(),
+  state: z.string().trim().min(1).optional(),
+  error: z.string().trim().optional(),
+});
+
+const oauthExchangeBodySchema = z.object({
+  code: z.string().trim().min(1, 'OAuth 临时凭证不能为空'),
+});
+
 function getValidationMessage(error: z.ZodError) {
   const issue = error.issues[0];
   return issue?.message ?? '请求参数不合法';
@@ -67,7 +90,10 @@ function toHttpError(error: unknown): HttpError {
 export async function registerController(request: FastifyRequest, reply: FastifyReply) {
   try {
     const body = registerBodySchema.parse(request.body);
-    const result = await registerWithEmail(body);
+    const result = await registerWithEmail({
+      ...body,
+      name: body.name ? sanitizePlainText(body.name).slice(0, 30) : undefined,
+    });
     return reply.status(201).send(result);
   } catch (error) {
     const httpError = toHttpError(error);
@@ -143,6 +169,84 @@ export async function logoutController(request: FastifyRequest, reply: FastifyRe
     }
 
     return reply.send({ success: true });
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function googleOAuthStartController(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const query = oauthStartQuerySchema.parse(request.query);
+    const authorizeUrl = await createGoogleOAuthStartUrl(query.redirect);
+    return reply.redirect(authorizeUrl);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function googleOAuthCallbackController(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const query = oauthCallbackQuerySchema.parse(request.query);
+
+    if (query.error || !query.code || !query.state) {
+      return reply.redirect(getOAuthErrorRedirectUrl('google'));
+    }
+
+    const redirectUrl = await completeGoogleOAuthCallback({
+      code: query.code,
+      state: query.state,
+    });
+    return reply.redirect(redirectUrl);
+  } catch {
+    return reply.redirect(getOAuthErrorRedirectUrl('google'));
+  }
+}
+
+export async function wechatOAuthStartController(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const query = oauthStartQuerySchema.parse(request.query);
+    const authorizeUrl = await createWeChatOAuthStartUrl(query.redirect);
+    return reply.redirect(authorizeUrl);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function wechatOAuthCallbackController(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const query = oauthCallbackQuerySchema.parse(request.query);
+
+    if (query.error || !query.code || !query.state) {
+      return reply.redirect(getOAuthErrorRedirectUrl('wechat'));
+    }
+
+    const redirectUrl = await completeWeChatOAuthCallback({
+      code: query.code,
+      state: query.state,
+    });
+    return reply.redirect(redirectUrl);
+  } catch {
+    return reply.redirect(getOAuthErrorRedirectUrl('wechat'));
+  }
+}
+
+export async function oauthExchangeController(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const body = oauthExchangeBodySchema.parse(request.body);
+    const result = await exchangeOAuthLoginCode(body.code);
+    return reply.send(result);
   } catch (error) {
     const httpError = toHttpError(error);
     return reply.status(httpError.statusCode).send({

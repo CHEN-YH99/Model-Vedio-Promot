@@ -17,6 +17,7 @@ model User {
   quotaUsedAt  DateTime?
   createdAt    DateTime  @default(now())
   analyses     Analysis[]
+  oauthAccounts OAuthAccount[]
   sessions     Session[]
   uploads      UploadedFile[]
 }
@@ -27,6 +28,8 @@ model Session {
   token     String   @unique
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model Analysis {
@@ -45,6 +48,7 @@ model Analysis {
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, fileId, status, updatedAt])
 }
 
 model Frame {
@@ -55,6 +59,8 @@ model Frame {
   rawAnalysis Json
   prompts    Json
   analysis   Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId, timestamp])
 }
 
 model UploadedFile {
@@ -74,6 +80,35 @@ model UploadedFile {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, uploadedAt])
+  @@index([id, userId])
+}
+
+model OAuthAccount {
+  id                String        @id @default(cuid())
+  provider          OAuthProvider
+  providerAccountId String
+  userId            String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, provider])
+}
+
+model DataDeletionRequest {
+  id            String             @id @default(cuid())
+  userId        String
+  emailSnapshot String
+  reason        String?
+  status        DataDeletionStatus @default(PENDING)
+  requestedAt   DateTime           @default(now())
+  executeAfter  DateTime
+  processedAt   DateTime?
+  failureReason String?
+
+  @@index([status, executeAfter])
+  @@index([userId, requestedAt])
 }
 
 enum Plan {
@@ -92,5 +127,17 @@ enum AnalysisStatus {
 
 enum UploadStatus {
   METADATA_READY
+  FAILED
+}
+
+enum OAuthProvider {
+  GOOGLE
+  WECHAT
+}
+
+enum DataDeletionStatus {
+  PENDING
+  COMPLETED
+  CANCELED
   FAILED
 }

@@ -1,6 +1,6 @@
 ﻿import path from 'node:path';
 import { createWriteStream } from 'node:fs';
-import { copyFile, mkdir, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, open, rm, stat } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
@@ -24,6 +24,7 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const FREE_MAX_BYTES = 100 * 1024 * 1024;
 const PRO_MAX_BYTES = 500 * 1024 * 1024;
+const MAGIC_BUFFER_SIZE = 16;
 
 interface VideoMetaResult {
   duration: number;
@@ -89,6 +90,69 @@ function parseFrameRate(value: string | undefined): number {
   }
 
   return Number((numerator / denominator).toFixed(3));
+}
+
+function readAscii(buffer: Buffer, start: number, end: number) {
+  return buffer.subarray(start, end).toString('ascii');
+}
+
+function detectVideoSignature(buffer: Buffer) {
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3
+  ) {
+    return 'webm';
+  }
+
+  if (
+    buffer.length >= 12 &&
+    readAscii(buffer, 0, 4) === 'RIFF' &&
+    readAscii(buffer, 8, 12) === 'AVI '
+  ) {
+    return 'avi';
+  }
+
+  if (buffer.length >= 8 && readAscii(buffer, 4, 8) === 'ftyp') {
+    return 'mp4';
+  }
+
+  return null;
+}
+
+function isExtensionCompatibleWithSignature(extension: string, signature: string | null) {
+  if (!signature) {
+    return false;
+  }
+
+  if (!extension) {
+    return true;
+  }
+
+  if (extension === 'mov') {
+    return signature === 'mp4';
+  }
+
+  return extension === signature;
+}
+
+async function ensureVideoMagicNumber(input: { destinationPath: string; extension: string }) {
+  const handle = await open(input.destinationPath, 'r');
+
+  try {
+    const buffer = Buffer.allocUnsafe(MAGIC_BUFFER_SIZE);
+    const { bytesRead } = await handle.read(buffer, 0, MAGIC_BUFFER_SIZE, 0);
+    const headBytes = buffer.subarray(0, bytesRead);
+    const signature = detectVideoSignature(headBytes);
+
+    if (!isExtensionCompatibleWithSignature(input.extension, signature)) {
+      throw new HttpError('文件内容与视频格式不匹配，请勿伪造扩展名', 400, 'FILE_SIGNATURE_INVALID');
+    }
+  } finally {
+    await handle.close();
+  }
 }
 
 async function persistUploadFile(part: MultipartFile, destinationPath: string, maxBytes: number) {
@@ -262,6 +326,10 @@ export async function saveUploadedVideo(input: {
   const destinationPath = path.join(input.uploadDir, storedFilename);
 
   const fileSize = await persistUploadFile(input.part, destinationPath, maxBytes);
+  await ensureVideoMagicNumber({
+    destinationPath,
+    extension,
+  });
 
   let meta: VideoMetaResult;
 
@@ -319,6 +387,11 @@ export async function saveUploadedVideoFromLocalPath(input: {
       'FILE_TOO_LARGE',
     );
   }
+
+  await ensureVideoMagicNumber({
+    destinationPath,
+    extension,
+  });
 
   let meta: VideoMetaResult;
 

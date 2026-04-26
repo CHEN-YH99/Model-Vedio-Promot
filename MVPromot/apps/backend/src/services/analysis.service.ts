@@ -6,6 +6,7 @@ import type { Prisma } from '@prisma/client';
 import { analysisQueue, ANALYSIS_JOB_OPTIONS } from '../queues/analysis.queue.js';
 import { prisma } from '../plugins/prisma.js';
 import { redis } from '../plugins/redis.js';
+import { createAnalysisCacheKey, getCachedAnalysisId } from './analysis-cache.service.js';
 import {
   extractStyleTags,
   generateOverallPromptByPlatform,
@@ -200,6 +201,20 @@ function resolveFrameImagePath(thumbUrl: string) {
   return absolutePath;
 }
 
+function toPublicThumbUrl(thumbUrl: string) {
+  if (thumbUrl.startsWith('http://') || thumbUrl.startsWith('https://')) {
+    return thumbUrl;
+  }
+
+  if (!env.ASSET_CDN_BASE_URL) {
+    return thumbUrl;
+  }
+
+  const normalizedBase = env.ASSET_CDN_BASE_URL.replace(/\/$/, '');
+  const normalizedPath = thumbUrl.startsWith('/') ? thumbUrl : `/${thumbUrl}`;
+  return `${normalizedBase}${normalizedPath}`;
+}
+
 function getPromptTextByLanguage(input: {
   payload: unknown;
   language: PromptLanguage;
@@ -244,7 +259,7 @@ function serializeAnalysisResult(analysis: {
     frames: analysis.frames.map((frame) => ({
       id: frame.id,
       timestamp: frame.timestamp,
-      thumbUrl: frame.thumbUrl,
+      thumbUrl: toPublicThumbUrl(frame.thumbUrl),
       rawAnalysis: frame.rawAnalysis,
       prompts: frame.prompts,
     })),
@@ -281,6 +296,34 @@ export async function startAnalysisTask(input: {
 
   if (!uploadedFile) {
     throw new HttpError('未找到上传文件，请先上传视频', 404, 'UPLOAD_FILE_NOT_FOUND');
+  }
+
+  const cacheKey = createAnalysisCacheKey({
+    userId: input.userId,
+    fileId: input.fileId,
+    config: input.config,
+  });
+  const cachedAnalysisId = await getCachedAnalysisId(cacheKey);
+
+  if (cachedAnalysisId) {
+    const cachedAnalysis = await prisma.analysis.findFirst({
+      where: {
+        id: cachedAnalysisId,
+        userId: input.userId,
+        fileId: input.fileId,
+        status: 'DONE',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (cachedAnalysis) {
+      return {
+        analysisId: cachedAnalysis.id,
+        cacheHit: true,
+      };
+    }
   }
 
   await consumeAnalysisQuota({ userId: input.userId });
@@ -422,7 +465,7 @@ export async function getAnalysisHistory(input: {
       platforms: runtimeConfig.platforms,
       language: runtimeConfig.language,
       frameCount: analysis._count.frames,
-      coverThumbUrl: analysis.frames[0]?.thumbUrl ?? null,
+      coverThumbUrl: analysis.frames[0]?.thumbUrl ? toPublicThumbUrl(analysis.frames[0].thumbUrl) : null,
       styleTags: analysis.styleTags,
       createdAt: analysis.createdAt.toISOString(),
       updatedAt: analysis.updatedAt.toISOString(),
@@ -543,7 +586,7 @@ export async function updateFramePrompt(input: {
     frame: {
       id: updatedFrame.id,
       timestamp: updatedFrame.timestamp,
-      thumbUrl: updatedFrame.thumbUrl,
+      thumbUrl: toPublicThumbUrl(updatedFrame.thumbUrl),
       rawAnalysis: updatedFrame.rawAnalysis,
       prompts: updatedFrame.prompts,
     },
@@ -639,7 +682,7 @@ export async function regenerateFramePrompt(input: {
     frame: {
       id: updatedFrame.id,
       timestamp: updatedFrame.timestamp,
-      thumbUrl: updatedFrame.thumbUrl,
+      thumbUrl: toPublicThumbUrl(updatedFrame.thumbUrl),
       rawAnalysis: updatedFrame.rawAnalysis,
       prompts: updatedFrame.prompts,
     },
@@ -698,7 +741,7 @@ export async function exportAnalysisResult(input: {
       index: index + 1,
       id: frame.id,
       timestamp: frame.timestamp,
-      thumbUrl: frame.thumbUrl,
+      thumbUrl: toPublicThumbUrl(frame.thumbUrl),
       rawAnalysis: frame.rawAnalysis,
       prompt: getPromptTextByLanguage({
         payload: platformPayload,

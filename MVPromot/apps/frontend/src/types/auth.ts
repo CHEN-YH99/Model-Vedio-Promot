@@ -11,3 +11,10 @@ export interface AuthPayload {
   accessToken: string;
   refreshToken: string;
 }
+
+export type OAuthProviderName = 'google' | 'wechat';
+
+export interface OAuthExchangePayload extends AuthPayload {
+  provider: OAuthProviderName;
+  redirectPath: string;
+}

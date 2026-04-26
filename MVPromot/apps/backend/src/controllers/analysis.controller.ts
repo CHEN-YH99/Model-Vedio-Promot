@@ -15,6 +15,7 @@ import {
   updateFramePrompt,
 } from '../services/analysis.service.js';
 import { HttpError } from '../utils/http-error.js';
+import { sanitizePlainText } from '../utils/sanitize.js';
 
 const promptPlatformSchema = z.enum(['sora', 'runway', 'kling', 'pika', 'wan', 'hailuo']);
 const promptLanguageSchema = z.enum(['zh', 'en', 'bilingual']);
@@ -46,8 +47,11 @@ const analysisFrameParamsSchema = z.object({
 const updateFramePromptBodySchema = z.object({
   platform: promptPlatformSchema,
   language: promptLanguageSchema,
-  prompt: z.string().trim().min(1, '提示词内容不能为空'),
-  negativePrompt: z.string().optional(),
+  prompt: z
+    .string()
+    .transform((value) => sanitizePlainText(value))
+    .refine((value) => value.length > 0, '提示词内容不能为空'),
+  negativePrompt: z.string().transform((value) => sanitizePlainText(value)).optional(),
 });
 
 const analysisExportQuerySchema = z.object({

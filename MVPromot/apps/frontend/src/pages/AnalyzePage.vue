@@ -1,22 +1,23 @@
 ﻿<template>
-  <section class="mx-auto w-full max-w-3xl rounded-2xl border border-white/10 bg-white/5 p-6">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold text-white">分析配置</h1>
-      <span class="rounded-md border border-white/20 px-3 py-1 text-xs text-zinc-300">
-        fileId: {{ fileId }}
-      </span>
-    </header>
+  <section class="vtp-page px-0 py-6 sm:py-10">
+    <div class="mx-auto w-full max-w-3xl rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold text-white">分析配置</h1>
+        <span class="rounded-md border border-white/20 px-3 py-1 text-xs text-zinc-300">
+          fileId: {{ fileId }}
+        </span>
+      </header>
 
-    <div v-if="loading" class="mt-6 text-sm text-zinc-300">正在读取视频元数据...</div>
+      <div v-if="loading" class="mt-6 text-sm text-zinc-300">正在读取视频元数据...</div>
 
-    <p
-      v-else-if="errorMessage"
-      class="mt-6 rounded-lg border border-rose-400/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200"
-    >
-      {{ errorMessage }}
-    </p>
+      <p
+        v-else-if="errorMessage"
+        class="mt-6 rounded-lg border border-rose-400/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200"
+      >
+        {{ errorMessage }}
+      </p>
 
-    <div v-else-if="meta" class="mt-6 space-y-5">
+      <div v-else-if="meta" class="mt-6 space-y-5">
       <div
         class="grid gap-3 rounded-xl border border-white/10 bg-zinc-950/40 p-4 text-sm text-zinc-200 md:grid-cols-2"
       >
@@ -99,6 +100,7 @@
           {{ submitting ? '提交中...' : '开始分析' }}
         </button>
       </form>
+      </div>
     </div>
   </section>
 </template>

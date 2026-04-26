@@ -1,5 +1,6 @@
-﻿import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { prisma } from '../plugins/prisma.js';
 import { redis } from '../plugins/redis.js';
 import { verifyAccessToken } from '../utils/auth-token.js';
 
@@ -22,10 +23,30 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
 
   try {
     const payload = verifyAccessToken(token);
-    const isBlacklisted = await redis.exists(`auth:blacklist:${payload.jti}`);
+    const [isBlacklisted, session] = await Promise.all([
+      redis.exists(`auth:blacklist:${payload.jti}`),
+      prisma.session.findUnique({
+        where: {
+          id: payload.sid,
+        },
+        select: {
+          id: true,
+          userId: true,
+          expiresAt: true,
+        },
+      }),
+    ]);
 
     if (isBlacklisted > 0) {
       return reply.status(401).send({ message: '访问令牌已失效，请重新登录' });
+    }
+
+    if (
+      !session ||
+      session.userId !== payload.sub ||
+      session.expiresAt.getTime() <= Date.now()
+    ) {
+      return reply.status(401).send({ message: '登录会话已失效，请重新登录' });
     }
 
     request.auth = {

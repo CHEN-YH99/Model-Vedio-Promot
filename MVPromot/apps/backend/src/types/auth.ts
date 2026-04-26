@@ -15,6 +15,8 @@ export interface AuthSuccessResponse extends TokenPair {
   user: AuthUser;
 }
 
+export type OAuthProviderName = 'google' | 'wechat';
+
 export interface AccessTokenPayload {
   sub: string;
   sid: string;
@@ -31,4 +33,9 @@ export interface RefreshTokenPayload {
   type: 'refresh';
   iat: number;
   exp: number;
+}
+
+export interface OAuthExchangeResponse extends AuthSuccessResponse {
+  provider: OAuthProviderName;
+  redirectPath: string;
 }

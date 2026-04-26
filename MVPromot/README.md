@@ -21,6 +21,20 @@
 
 ---
 
+## 第三关已实现能力（3-2 / 3-3 / 3-4）
+
+- 第三方登录：Google OAuth + 微信 OAuth（后端回调 + 前端 `code exchange`）
+- 账号合并：OAuth 登录时按同邮箱自动并档；微信无邮箱场景自动创建占位邮箱账号
+- 前端性能：路由懒加载、关键帧 `LazyImage`、结果/分享/历史骨架屏
+- 构建优化：Vite `manualChunks` + `vite-plugin-compression` 产出 `.gz`
+- 后端性能：分析缓存（Redis，`userId + fileId + config` 命中复用）
+- 监控：接口延迟窗口统计（p95 日志）、Prisma 慢查询告警（>100ms）
+- 安全：`@fastify/helmet`（CSP / HSTS / X-Frame-Options）、日志脱敏
+- 上传安全：文件魔数校验（不信任扩展名）
+- 合规：隐私政策页 `/privacy`、服务条款页 `/terms`、用户数据删除申请接口（7 天执行窗口）
+
+---
+
 ## 快速启动
 
 ### 一键启动（推荐）
@@ -100,6 +114,17 @@ npm run dev
 | test | 测试脚本顶部 `process.env.X ??=` 设置默认值（见 `apps/backend/tests/*.test.mjs`）|
 | production | 部署平台 Secrets 注入；敏感字段（JWT_*、OPENAI_API_KEY）不入库、不进镜像 |
 
+### 第三关新增关键变量（后端）
+
+- `ANALYSIS_CACHE_TTL_SECONDS`：分析缓存 TTL（秒）
+- `ASSET_CDN_BASE_URL`：缩略图 CDN 域名（可选，配置后接口返回 CDN 地址）
+- `OAUTH_FRONTEND_CALLBACK_URL`：OAuth 回跳前端地址（默认 `/oauth/callback`）
+- `OAUTH_GOOGLE_*`：Google OAuth 配置
+- `OAUTH_WECHAT_*`：微信 OAuth 配置
+- `SECURITY_ENABLE_HTTPS_REDIRECT`：是否启用 HTTP→HTTPS 重定向
+- `SECURITY_HTTPS_PORT`：HTTPS 端口（默认 `443`）
+- `DATA_DELETION_GRACE_DAYS`：数据删除执行窗口（默认 `7` 天）
+
 ---
 
 ## 测试
@@ -168,6 +193,10 @@ npm run test:e2e:upload-url
 
 [frame-extractor.service.ts](apps/backend/src/services/frame-extractor.service.ts) 同时跑 `ffmpeg select=gt(scene,threshold)` 场景检测与固定间隔采样，再按优先级（首帧/尾帧 > 场景切换 > 均匀填充）合并去重到 `ANALYSIS_MAX_FRAMES` 上限，场景检测失败自动降级到均匀采样。
 
+### OAuth 回调安全：短期授权码交换
+
+后端 OAuth 回调不直接把 token 暴露在 URL，而是生成一次性临时 `code`（Redis TTL），前端在 `/oauth/callback` 页通过 `POST /api/auth/oauth/exchange` 换取正式会话 token，避免 URL 泄漏风险。
+
 ---
 
 ## 开发纪律
@@ -176,3 +205,7 @@ npm run test:e2e:upload-url
 - Husky pre-commit：`npm run lint && npm run types`
 - CI：`.github/workflows/ci.yml` 跑 lint + types + build
 - 每次接口新增或修改，同步更新本 README 与 [开发闯关.md](开发闯关.md) 的 DoD 勾选状态
+
+## 部署补充
+
+- HTTPS + HTTP 跳转 + gzip 参考模板：`deploy/nginx/https.conf.example`

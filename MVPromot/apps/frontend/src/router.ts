@@ -1,15 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-import AnalyzePage from '@/pages/AnalyzePage.vue';
-import AnalysisProgressPage from '@/pages/AnalysisProgressPage.vue';
-import HistoryPage from '@/pages/HistoryPage.vue';
-import HomePage from '@/pages/HomePage.vue';
-import LoginPage from '@/pages/LoginPage.vue';
-import PricingPage from '@/pages/PricingPage.vue';
-import ProfilePage from '@/pages/ProfilePage.vue';
-import RegisterPage from '@/pages/RegisterPage.vue';
-import ResultPage from '@/pages/ResultPage.vue';
-import SharePage from '@/pages/SharePage.vue';
 import { useAuthStore } from '@/stores/auth';
 
 export const router = createRouter({
@@ -18,12 +8,12 @@ export const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomePage,
+      component: () => import('@/pages/HomePage.vue'),
     },
     {
       path: '/login',
       name: 'login',
-      component: LoginPage,
+      component: () => import('@/pages/LoginPage.vue'),
       meta: {
         guestOnly: true,
       },
@@ -31,7 +21,15 @@ export const router = createRouter({
     {
       path: '/register',
       name: 'register',
-      component: RegisterPage,
+      component: () => import('@/pages/RegisterPage.vue'),
+      meta: {
+        guestOnly: true,
+      },
+    },
+    {
+      path: '/oauth/callback',
+      name: 'oauth-callback',
+      component: () => import('@/pages/OAuthCallbackPage.vue'),
       meta: {
         guestOnly: true,
       },
@@ -39,7 +37,7 @@ export const router = createRouter({
     {
       path: '/analyze/:fileId',
       name: 'analyze',
-      component: AnalyzePage,
+      component: () => import('@/pages/AnalyzePage.vue'),
       meta: {
         requiresAuth: true,
       },
@@ -47,7 +45,7 @@ export const router = createRouter({
     {
       path: '/analysis/progress/:analysisId',
       name: 'analysis-progress',
-      component: AnalysisProgressPage,
+      component: () => import('@/pages/AnalysisProgressPage.vue'),
       meta: {
         requiresAuth: true,
       },
@@ -55,7 +53,7 @@ export const router = createRouter({
     {
       path: '/result/:analysisId',
       name: 'result',
-      component: ResultPage,
+      component: () => import('@/pages/ResultPage.vue'),
       meta: {
         requiresAuth: true,
       },
@@ -63,12 +61,12 @@ export const router = createRouter({
     {
       path: '/pricing',
       name: 'pricing',
-      component: PricingPage,
+      component: () => import('@/pages/PricingPage.vue'),
     },
     {
       path: '/profile',
       name: 'profile',
-      component: ProfilePage,
+      component: () => import('@/pages/ProfilePage.vue'),
       meta: {
         requiresAuth: true,
       },
@@ -76,7 +74,7 @@ export const router = createRouter({
     {
       path: '/history',
       name: 'history',
-      component: HistoryPage,
+      component: () => import('@/pages/HistoryPage.vue'),
       meta: {
         requiresAuth: true,
       },
@@ -84,7 +82,17 @@ export const router = createRouter({
     {
       path: '/share/:token',
       name: 'share',
-      component: SharePage,
+      component: () => import('@/pages/SharePage.vue'),
+    },
+    {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('@/pages/PrivacyPolicyPage.vue'),
+    },
+    {
+      path: '/terms',
+      name: 'terms',
+      component: () => import('@/pages/TermsOfServicePage.vue'),
     },
   ],
 });

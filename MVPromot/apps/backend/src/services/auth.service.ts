@@ -10,11 +10,13 @@ import { HttpError } from '../utils/http-error.js';
 import { createAccessToken, createRefreshToken, verifyRefreshToken } from '../utils/auth-token.js';
 import type {
   AuthSuccessResponse,
+  OAuthProviderName,
   RefreshTokenPayload,
   TokenPair,
 } from '../types/auth.js';
 
 type AuthPlan = AuthSuccessResponse['user']['plan'];
+type OAuthProviderRecord = 'GOOGLE' | 'WECHAT';
 
 interface AuthUserRecord {
   id: string;
@@ -30,6 +32,14 @@ interface AuthSessionRecord {
   userId: string;
   token: string;
   expiresAt: Date;
+}
+
+interface AuthOAuthAccountRecord {
+  id: string;
+  provider: OAuthProviderRecord;
+  providerAccountId: string;
+  userId: string;
+  user?: AuthUserRecord;
 }
 
 interface AuthPrismaClient {
@@ -59,7 +69,27 @@ interface AuthPrismaClient {
       };
     }): Promise<AuthSessionRecord>;
     findUnique(args: { where: { id: string } }): Promise<AuthSessionRecord | null>;
-    deleteMany(args: { where: { id?: string; token?: string } }): Promise<unknown>;
+    deleteMany(args: { where: { id?: string; token?: string; userId?: string } }): Promise<unknown>;
+  };
+  oauthAccount?: {
+    findUnique(args: {
+      where: {
+        provider_providerAccountId: {
+          provider: OAuthProviderRecord;
+          providerAccountId: string;
+        };
+      };
+      include?: {
+        user?: boolean;
+      };
+    }): Promise<AuthOAuthAccountRecord | null>;
+    create(args: {
+      data: {
+        provider: OAuthProviderRecord;
+        providerAccountId: string;
+        userId: string;
+      };
+    }): Promise<AuthOAuthAccountRecord>;
   };
 }
 
@@ -89,6 +119,41 @@ function toAuthUser(user: Pick<AuthUserRecord, 'id' | 'email' | 'name' | 'plan' 
     plan: user.plan,
     createdAt: user.createdAt.toISOString(),
   };
+}
+
+function toOAuthProviderRecord(provider: OAuthProviderName): OAuthProviderRecord {
+  if (provider === 'google') {
+    return 'GOOGLE';
+  }
+
+  return 'WECHAT';
+}
+
+function normalizeEmail(email: string | null | undefined) {
+  if (!email) {
+    return null;
+  }
+
+  const normalized = email.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function sanitizeProviderAccountId(providerAccountId: string) {
+  const value = providerAccountId.trim();
+
+  if (!value) {
+    throw new HttpError('第三方账号标识为空', 400, 'OAUTH_ACCOUNT_INVALID');
+  }
+
+  return value;
+}
+
+function createOAuthFallbackEmail(provider: OAuthProviderName, providerAccountId: string) {
+  return `${provider}_${providerAccountId}@oauth.local`;
+}
+
+function createOAuthFallbackName(provider: OAuthProviderName) {
+  return provider === 'google' ? 'Google 用户' : '微信用户';
 }
 
 export function createAuthService(dependencies: AuthServiceDependencies) {
@@ -186,6 +251,116 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     };
   }
 
+  async function loginWithOAuth(input: {
+    provider: OAuthProviderName;
+    providerAccountId: string;
+    email?: string | null;
+    name?: string | null;
+  }): Promise<AuthSuccessResponse> {
+    const oauthAccount = dependencies.prisma.oauthAccount;
+
+    if (!oauthAccount) {
+      throw new HttpError('服务端未启用第三方登录', 500, 'OAUTH_NOT_ENABLED');
+    }
+
+    const provider = toOAuthProviderRecord(input.provider);
+    const providerAccountId = sanitizeProviderAccountId(input.providerAccountId);
+
+    const exists = await oauthAccount.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider,
+          providerAccountId,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (exists?.user) {
+      const tokens = await issueTokenPair(exists.user.id);
+
+      return {
+        user: toAuthUser(exists.user),
+        ...tokens,
+      };
+    }
+
+    const normalizedEmail = normalizeEmail(input.email);
+    let user = normalizedEmail
+      ? await dependencies.prisma.user.findUnique({
+          where: {
+            email: normalizedEmail,
+          },
+        })
+      : null;
+
+    if (!user) {
+      const fallbackEmail = createOAuthFallbackEmail(input.provider, providerAccountId);
+      const passwordHash = await dependencies.hashPassword(
+        `${dependencies.createRandomTokenKey()}:${providerAccountId}`,
+        dependencies.saltRounds,
+      );
+
+      try {
+        user = await dependencies.prisma.user.create({
+          data: {
+            email: normalizedEmail ?? fallbackEmail,
+            name: input.name?.trim() || createOAuthFallbackName(input.provider),
+            passwordHash,
+          },
+        });
+      } catch (error) {
+        if (isPrismaKnownRequestError(error) && error.code === 'P2002' && normalizedEmail) {
+          user = await dependencies.prisma.user.findUnique({
+            where: {
+              email: normalizedEmail,
+            },
+          });
+        }
+
+        if (!user) {
+          throw error;
+        }
+      }
+    }
+
+    try {
+      await oauthAccount.create({
+        data: {
+          provider,
+          providerAccountId,
+          userId: user.id,
+        },
+      });
+    } catch (error) {
+      if (!(isPrismaKnownRequestError(error) && error.code === 'P2002')) {
+        throw error;
+      }
+    }
+
+    const linked = await oauthAccount.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider,
+          providerAccountId,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    const targetUser = linked?.user ?? user;
+    const tokens = await issueTokenPair(targetUser.id);
+
+    return {
+      user: toAuthUser(targetUser),
+      ...tokens,
+    };
+  }
+
   async function getCurrentUser(userId: string) {
     const user = await dependencies.prisma.user.findUnique({
       where: {
@@ -271,12 +446,22 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     });
   }
 
+  async function revokeUserSessions(userId: string) {
+    await dependencies.prisma.session.deleteMany({
+      where: {
+        userId,
+      },
+    });
+  }
+
   return {
     registerWithEmail,
     loginWithEmail,
+    loginWithOAuth,
     getCurrentUser,
     refreshSession,
     revokeSession,
+    revokeUserSessions,
   };
 }
 
@@ -295,9 +480,11 @@ const authService = createAuthService({
 
 export const registerWithEmail = authService.registerWithEmail;
 export const loginWithEmail = authService.loginWithEmail;
+export const loginWithOAuth = authService.loginWithOAuth;
 export const getCurrentUser = authService.getCurrentUser;
 export const refreshSession = authService.refreshSession;
 export const revokeSession = authService.revokeSession;
+export const revokeUserSessions = authService.revokeUserSessions;
 
 export async function markAccessTokenAsBlacklisted(input: {
   jti: string;

@@ -23,10 +23,12 @@ function createUser(overrides = {}) {
 function createTestContext(options = {}) {
   const users = [...(options.users ?? [])];
   const sessions = [];
+  const oauthAccounts = [];
   const tokenStore = new Map();
 
   let userCounter = users.length;
   let sessionCounter = 0;
+  let oauthCounter = 0;
   let tokenCounter = 0;
 
   const prisma = {
@@ -96,6 +98,51 @@ function createTestContext(options = {}) {
         };
       },
     },
+    oauthAccount: {
+      async findUnique(args) {
+        const target = oauthAccounts.find((item) => {
+          return (
+            item.provider === args.where.provider_providerAccountId.provider &&
+            item.providerAccountId === args.where.provider_providerAccountId.providerAccountId
+          );
+        });
+
+        if (!target) {
+          return null;
+        }
+
+        if (!args.include?.user) {
+          return target;
+        }
+
+        return {
+          ...target,
+          user: users.find((item) => item.id === target.userId) ?? null,
+        };
+      },
+      async create(args) {
+        oauthCounter += 1;
+        const exists = oauthAccounts.find((item) => {
+          return (
+            item.provider === args.data.provider &&
+            item.providerAccountId === args.data.providerAccountId
+          );
+        });
+
+        if (exists) {
+          return exists;
+        }
+
+        const record = {
+          id: `oauth_${oauthCounter}`,
+          provider: args.data.provider,
+          providerAccountId: args.data.providerAccountId,
+          userId: args.data.userId,
+        };
+        oauthAccounts.push(record);
+        return record;
+      },
+    },
   };
 
   const service = createAuthService({
@@ -147,6 +194,7 @@ function createTestContext(options = {}) {
     service,
     users,
     sessions,
+    oauthAccounts,
   };
 }
 
@@ -335,4 +383,60 @@ test('markAccessTokenAsBlacklisted 会按剩余过期时间写入 redis', async 
   });
 
   assert.equal(calls.length, 1);
+});
+
+test('loginWithOAuth 首次登录会创建用户并绑定 OAuth 账号', async () => {
+  const context = createTestContext();
+
+  const result = await context.service.loginWithOAuth({
+    provider: 'google',
+    providerAccountId: 'google-sub-1',
+    email: 'oauth-new@example.com',
+    name: 'OAuth User',
+  });
+
+  assert.equal(result.user.email, 'oauth-new@example.com');
+  assert.equal(context.users.length, 1);
+  assert.equal(context.oauthAccounts.length, 1);
+  assert.equal(context.oauthAccounts[0]?.provider, 'GOOGLE');
+});
+
+test('loginWithOAuth 会将同邮箱 OAuth 账号并入已存在用户', async () => {
+  const context = createTestContext({
+    users: [createUser({ id: 'user_existing', email: 'merge@example.com' })],
+  });
+
+  const result = await context.service.loginWithOAuth({
+    provider: 'google',
+    providerAccountId: 'google-sub-merge',
+    email: 'merge@example.com',
+    name: 'Merge User',
+  });
+
+  assert.equal(result.user.id, 'user_existing');
+  assert.equal(context.users.length, 1);
+  assert.equal(context.oauthAccounts.length, 1);
+  assert.equal(context.oauthAccounts[0]?.userId, 'user_existing');
+});
+
+test('loginWithOAuth 二次登录同一 providerAccountId 时应复用现有绑定', async () => {
+  const context = createTestContext();
+
+  await context.service.loginWithOAuth({
+    provider: 'wechat',
+    providerAccountId: 'wechat-openid-1',
+    email: null,
+    name: '微信用户',
+  });
+
+  const secondLogin = await context.service.loginWithOAuth({
+    provider: 'wechat',
+    providerAccountId: 'wechat-openid-1',
+    email: 'another@example.com',
+    name: 'Another Name',
+  });
+
+  assert.equal(context.users.length, 1);
+  assert.equal(context.oauthAccounts.length, 1);
+  assert.equal(secondLogin.user.id, context.users[0]?.id);
 });

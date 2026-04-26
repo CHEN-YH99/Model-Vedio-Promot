@@ -53,14 +53,41 @@
           class="hidden"
           @change="handleFileInput"
         />
+        <input
+          ref="cameraInputRef"
+          type="file"
+          accept="video/*"
+          capture="environment"
+          class="hidden"
+          @change="handleCameraInput"
+        />
         <p class="text-sm text-zinc-200">拖拽视频到这里，或者</p>
-        <button
-          type="button"
-          class="mt-3 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
-          @click="openFileDialog"
-        >
-          {{ authStore.isAuthenticated ? '点击选择文件' : '登录后上传' }}
-        </button>
+        <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
+            @click="openFileDialog"
+          >
+            {{
+              authStore.isAuthenticated
+                ? isMobileUploadMode
+                  ? '从相册/文件选择'
+                  : '点击选择文件'
+                : '登录后上传'
+            }}
+          </button>
+          <button
+            v-if="isMobileUploadMode"
+            type="button"
+            class="rounded-lg border border-white/20 bg-black/20 px-4 py-2 text-sm text-zinc-100 transition hover:border-emerald-300 hover:text-emerald-200"
+            @click="openCameraDialog"
+          >
+            直接拍摄视频
+          </button>
+        </div>
+        <p v-if="isMobileUploadMode" class="mt-2 text-xs text-zinc-400">
+          手机端支持相册/文件管理器选择，也支持直接调起摄像头拍摄。
+        </p>
       </div>
 
       <div v-if="uploadStore.status === 'uploading'" class="mt-5 space-y-2">
@@ -231,7 +258,7 @@
 
 <script setup lang="ts">
 import axios from 'axios';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import {
@@ -255,6 +282,8 @@ const uploadStore = useUploadStore();
 const activeTab = ref<UploadTab>('local');
 const dragging = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const cameraInputRef = ref<HTMLInputElement | null>(null);
+const isMobileUploadMode = ref(false);
 
 const urlInput = ref('');
 const agreedToTerms = ref(false);
@@ -313,6 +342,14 @@ async function openFileDialog() {
   }
 
   fileInputRef.value?.click();
+}
+
+async function openCameraDialog() {
+  if (!(await ensureAuthenticated())) {
+    return;
+  }
+
+  cameraInputRef.value?.click();
 }
 
 function validateFile(file: File) {
@@ -397,6 +434,30 @@ async function handleFileInput(event: Event) {
 
   await uploadFile(file);
   input.value = '';
+}
+
+async function handleCameraInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  await uploadFile(file);
+  input.value = '';
+}
+
+function detectMobileUploadMode() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  const narrowScreen = window.matchMedia('(max-width: 767px)').matches;
+  const touchCapable = navigator.maxTouchPoints > 0;
+
+  return coarsePointer || narrowScreen || touchCapable;
 }
 
 async function ensureAuthenticated() {
@@ -686,5 +747,9 @@ async function handleDownloadUrl() {
 onUnmounted(() => {
   clearDownloadStatusPolling();
   stopDownloadProgress(false);
+});
+
+onMounted(() => {
+  isMobileUploadMode.value = detectMobileUploadMode();
 });
 </script>

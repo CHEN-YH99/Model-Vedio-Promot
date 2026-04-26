@@ -1,5 +1,5 @@
 <template>
-  <section class="space-y-6">
+  <section class="vtp-page px-0 py-6 sm:py-8 lg:py-10 space-y-6">
     <header
       class="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_38%),linear-gradient(135deg,_rgba(255,255,255,0.08),_rgba(255,255,255,0.03))] p-5 sm:p-6"
     >
@@ -30,9 +30,36 @@
 
     <div
       v-if="loading"
-      class="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-zinc-300"
+      class="space-y-5"
     >
-      正在加载分析结果...
+      <div class="h-10 w-44 animate-pulse rounded-xl bg-white/8"></div>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)]">
+        <div class="space-y-5">
+          <div class="rounded-[28px] border border-white/10 bg-white/5 p-4">
+            <div class="aspect-video animate-pulse rounded-2xl bg-white/8"></div>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <div class="h-20 rounded-2xl bg-white/8"></div>
+              <div class="h-20 rounded-2xl bg-white/8"></div>
+            </div>
+          </div>
+          <div class="rounded-[28px] border border-white/10 bg-white/5 p-4">
+            <div class="h-5 w-36 animate-pulse rounded bg-white/8"></div>
+            <div class="mt-4 h-24 animate-pulse rounded-2xl bg-white/8"></div>
+          </div>
+        </div>
+        <div class="space-y-5">
+          <div class="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div class="h-5 w-40 animate-pulse rounded bg-white/8"></div>
+            <div class="mt-4 h-4 w-full animate-pulse rounded bg-white/8"></div>
+            <div class="mt-2 h-4 w-5/6 animate-pulse rounded bg-white/8"></div>
+          </div>
+          <div class="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <div class="h-5 w-40 animate-pulse rounded bg-white/8"></div>
+            <div class="mt-4 h-4 w-full animate-pulse rounded bg-white/8"></div>
+            <div class="mt-2 h-4 w-3/4 animate-pulse rounded bg-white/8"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <p
@@ -85,13 +112,18 @@
 
       <div class="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)]">
         <aside class="space-y-5">
-          <section class="overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
+          <section
+            class="overflow-hidden rounded-[28px] border border-white/10 bg-white/5"
+            @touchstart.passive="handleSwipeTouchStart"
+            @touchend.passive="handleSwipeTouchEnd"
+          >
             <div class="relative aspect-video bg-zinc-950/70">
-              <img
+              <LazyImage
                 v-if="currentFrame"
                 :src="toImageUrl(currentFrame.thumbUrl)"
                 alt="当前选中关键帧"
-                class="absolute inset-0 h-full w-full object-cover"
+                image-class="absolute inset-0 h-full w-full object-cover"
+                wrapper-class="relative h-full w-full overflow-hidden"
               />
               <div
                 class="absolute inset-0 bg-[linear-gradient(180deg,rgba(9,9,11,0.05)_0%,rgba(9,9,11,0.24)_48%,rgba(9,9,11,0.84)_100%)]"
@@ -130,10 +162,35 @@
                 <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Timeline</p>
                 <h3 class="mt-1 text-lg font-semibold text-white">关键帧时间轴</h3>
               </div>
-              <p class="text-sm text-zinc-400">点击切换当前帧提示词</p>
+              <div class="flex items-center gap-2">
+                <p class="text-sm text-zinc-400">点击或左右滑动切换当前帧</p>
+                <div class="hidden items-center gap-2 sm:flex">
+                  <button
+                    type="button"
+                    class="rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                    :disabled="selectedFrameIndex <= 0"
+                    @click="selectFrameByOffset(-1)"
+                  >
+                    上一帧
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                    :disabled="selectedFrameIndex >= (result?.frames.length ?? 1) - 1"
+                    @click="selectFrameByOffset(1)"
+                  >
+                    下一帧
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+            <div
+              ref="timelineRef"
+              class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
+              @touchstart.passive="handleSwipeTouchStart"
+              @touchend.passive="handleSwipeTouchEnd"
+            >
               <button
                 v-for="(frame, index) in result.frames"
                 :key="frame.id"
@@ -143,13 +200,15 @@
                     ? 'border-emerald-400 bg-emerald-400/12 shadow-[0_0_0_1px_rgba(16,185,129,0.22)]'
                     : 'border-white/10 bg-zinc-950/45 hover:border-white/30 hover:bg-white/5'
                 "
-                @click="selectedFrameIndex = index"
+                :data-frame-active="index === selectedFrameIndex ? 'true' : 'false'"
+                @click="selectFrameByIndex(index)"
               >
                 <div class="overflow-hidden rounded-[16px]">
-                  <img
+                  <LazyImage
                     :src="toImageUrl(frame.thumbUrl)"
                     alt="关键帧缩略图"
-                    class="aspect-video w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                    image-class="aspect-video w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                    wrapper-class="relative overflow-hidden rounded-[16px]"
                   />
                 </div>
 
@@ -364,6 +423,7 @@ import {
   updateFramePromptRequest,
 } from '@/api/analysis';
 import { apiBaseUrl } from '@/api/http';
+import LazyImage from '@/components/LazyImage.vue';
 import type {
   AnalysisExportFormat,
   AnalysisFrameMutationResponse,
@@ -395,6 +455,12 @@ const promptDraft = ref('');
 const negativePromptDraft = ref('');
 const shareUrl = ref('');
 const shareExpiresAt = ref('');
+const timelineRef = ref<HTMLElement | null>(null);
+const swipeStartX = ref<number | null>(null);
+const swipeStartY = ref<number | null>(null);
+
+const SWIPE_MIN_DISTANCE = 56;
+const SWIPE_MAX_VERTICAL_DRIFT = 72;
 
 const platformTabs = computed<PromptPlatform[]>(() => {
   const source = result.value;
@@ -614,22 +680,128 @@ function toImageUrl(thumbUrl: string) {
   return assetPath;
 }
 
+function isIosDevice() {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  return (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 function fallbackCopyText(content: string) {
   const textarea = document.createElement('textarea');
   textarea.value = content;
   textarea.setAttribute('readonly', 'true');
   textarea.style.position = 'fixed';
   textarea.style.top = '-9999px';
+  textarea.style.left = '-9999px';
   textarea.style.opacity = '0';
+  textarea.style.fontSize = '16px';
   document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
+
+  if (isIosDevice()) {
+    textarea.removeAttribute('readonly');
+    textarea.contentEditable = 'true';
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(textarea);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    textarea.setSelectionRange(0, textarea.value.length);
+  } else {
+    textarea.focus();
+    textarea.select();
+  }
 
   try {
     return document.execCommand('copy');
   } finally {
+    window.getSelection()?.removeAllRanges();
     document.body.removeChild(textarea);
   }
+}
+
+function ensureFrameIndexInRange(nextIndex: number) {
+  const frameCount = result.value?.frames.length ?? 0;
+  if (frameCount === 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(frameCount - 1, nextIndex));
+}
+
+function scrollActiveFrameIntoView() {
+  const container = timelineRef.value;
+  if (!container) {
+    return;
+  }
+
+  const activeItem = container.querySelector<HTMLElement>('[data-frame-active="true"]');
+  activeItem?.scrollIntoView({
+    block: 'nearest',
+    inline: 'nearest',
+    behavior: 'smooth',
+  });
+}
+
+function selectFrameByOffset(offset: number) {
+  const nextIndex = ensureFrameIndexInRange(selectedFrameIndex.value + offset);
+
+  if (nextIndex === selectedFrameIndex.value) {
+    return;
+  }
+
+  selectedFrameIndex.value = nextIndex;
+  scrollActiveFrameIntoView();
+}
+
+function selectFrameByIndex(index: number) {
+  const nextIndex = ensureFrameIndexInRange(index);
+
+  if (nextIndex === selectedFrameIndex.value) {
+    return;
+  }
+
+  selectedFrameIndex.value = nextIndex;
+}
+
+function handleSwipeTouchStart(event: TouchEvent) {
+  const touch = event.changedTouches[0];
+  if (!touch) {
+    return;
+  }
+
+  swipeStartX.value = touch.clientX;
+  swipeStartY.value = touch.clientY;
+}
+
+function handleSwipeTouchEnd(event: TouchEvent) {
+  const startX = swipeStartX.value;
+  const startY = swipeStartY.value;
+  swipeStartX.value = null;
+  swipeStartY.value = null;
+
+  if (startX === null || startY === null) {
+    return;
+  }
+
+  const touch = event.changedTouches[0];
+  if (!touch) {
+    return;
+  }
+
+  const deltaX = touch.clientX - startX;
+  const deltaY = touch.clientY - startY;
+
+  if (Math.abs(deltaX) < SWIPE_MIN_DISTANCE || Math.abs(deltaY) > SWIPE_MAX_VERTICAL_DRIFT) {
+    return;
+  }
+
+  selectFrameByOffset(deltaX < 0 ? 1 : -1);
 }
 
 async function copyText(content: string) {
