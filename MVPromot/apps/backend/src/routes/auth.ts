@@ -15,7 +15,18 @@ import {
 import { authenticate } from '../middlewares/authenticate.js';
 
 export function registerAuthRoutes(server: FastifyInstance) {
-  server.post('/api/auth/register', registerController);
+  server.post(
+    '/api/auth/register',
+    {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    registerController,
+  );
 
   server.post(
     '/api/auth/login',

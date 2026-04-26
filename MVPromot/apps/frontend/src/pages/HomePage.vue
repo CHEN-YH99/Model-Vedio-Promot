@@ -35,23 +35,21 @@
 
       <div class="hero-scene__content vtp-page">
         <div class="hero-copy">
-          <p class="vtp-kicker">Narrative Landing Page</p>
+          <p class="vtp-kicker">{{ t('home.hero.kicker') }}</p>
           <h1 class="vtp-title hero-copy__title">
-            <span class="hero-copy__mask"><span data-mask-line>Turn reference video</span></span>
-            <span class="hero-copy__mask"><span data-mask-line>into camera language</span></span>
-            <span class="hero-copy__mask"><span data-mask-line>for video models</span></span>
+            <span v-for="(line, index) in heroTitleLines" :key="`hero-line-${index}`" class="hero-copy__mask">
+              <span data-mask-line>{{ line }}</span>
+            </span>
           </h1>
           <p class="vtp-body hero-copy__body">
-            The landing page is now a public story-driven experience. Hero already uses real
-            `bg / mid / fg` assets. The next scenes keep clear placeholders so later assets can be
-            swapped in without rebuilding layout rhythm.
+            {{ t('home.hero.body') }}
           </p>
           <div class="hero-copy__actions">
             <a v-if="authStore.isAuthenticated" class="vtp-button" href="#launch-pad">
-              Start Upload
+              {{ t('home.hero.startUpload') }}
             </a>
-            <RouterLink v-else class="vtp-button" :to="loginLink">Login To Start</RouterLink>
-            <a class="vtp-button vtp-button--ghost" href="#story-grid">View Story Flow</a>
+            <RouterLink v-else class="vtp-button" :to="loginLink">{{ t('home.hero.loginToStart') }}</RouterLink>
+            <a class="vtp-button vtp-button--ghost" href="#story-grid">{{ t('home.hero.viewStory') }}</a>
           </div>
 
           <div class="hero-stats">
@@ -77,11 +75,10 @@
     <section id="story-grid" class="section-block">
       <div class="vtp-page">
         <div class="section-head" data-reveal>
-          <p class="vtp-kicker">Story Grid</p>
-          <h2 class="vtp-title section-head__title">Structure first, assets later.</h2>
+          <p class="vtp-kicker">{{ t('home.storyGrid.kicker') }}</p>
+          <h2 class="vtp-title section-head__title">{{ t('home.storyGrid.title') }}</h2>
           <p class="vtp-body">
-            This page now reserves clear slots for the next scenes. No more patchwork cards without
-            sequencing. When new section assets arrive, they can replace stage layers directly.
+            {{ t('home.storyGrid.body') }}
           </p>
         </div>
 
@@ -98,11 +95,10 @@
     <section class="section-block section-block--soft">
       <div class="vtp-page workflow-grid">
         <div class="section-head" data-reveal>
-          <p class="vtp-kicker">Workflow</p>
-          <h2 class="vtp-title section-head__title">Show the pipeline before asking for trust.</h2>
+          <p class="vtp-kicker">{{ t('home.workflow.kicker') }}</p>
+          <h2 class="vtp-title section-head__title">{{ t('home.workflow.title') }}</h2>
           <p class="vtp-body">
-            Upload, analysis config, progress tracking, and result review are now framed as one
-            continuous product story instead of isolated screens.
+            {{ t('home.workflow.body') }}
           </p>
 
           <div class="workflow-list">
@@ -128,13 +124,12 @@
           </div>
 
           <article class="workflow-stage__console vtp-panel">
-            <p class="workflow-stage__eyebrow">Prompt Console</p>
+            <p class="workflow-stage__eyebrow">{{ t('home.workflow.promptConsole.eyebrow') }}</p>
             <p class="workflow-stage__code">
-              slow push in, cinematic control room, holographic cube streaming multi-scene video
-              frames, volumetric blue light, reflective metal floor
+              {{ t('home.workflow.promptConsole.code') }}
             </p>
             <p class="workflow-stage__hint">
-              Placeholder scenes are ready for future `focus / network / compare / cta` assets.
+              {{ t('home.workflow.promptConsole.hint') }}
             </p>
           </article>
         </div>
@@ -144,11 +139,10 @@
     <section class="section-block">
       <div class="vtp-page section-grid">
         <div class="section-head" data-reveal>
-          <p class="vtp-kicker">Platform Network</p>
-          <h2 class="vtp-title section-head__title">One analysis core, multiple output voices.</h2>
+          <p class="vtp-kicker">{{ t('home.network.kicker') }}</p>
+          <h2 class="vtp-title section-head__title">{{ t('home.network.title') }}</h2>
           <p class="vtp-body">
-            Sora, Runway, Kling, Pika, Wan, and Hailuo sit on one conversion network. The vector
-            stage below is a clean placeholder until the dedicated network scene assets arrive.
+            {{ t('home.network.body') }}
           </p>
         </div>
 
@@ -160,9 +154,9 @@
           </div>
 
           <div class="network-stage__core">
-            <p>Prompt Core</p>
-            <strong>Frame Analysis Bus</strong>
-            <small>Scene tags, motion tags, style tags, prompt templates</small>
+            <p>{{ t('home.network.coreKicker') }}</p>
+            <strong>{{ t('home.network.coreTitle') }}</strong>
+            <small>{{ t('home.network.coreSubtitle') }}</small>
           </div>
 
           <div
@@ -181,11 +175,10 @@
     <section id="launch-pad" class="section-block section-block--soft">
       <div class="vtp-page launch-grid">
         <div class="section-head" data-reveal>
-          <p class="vtp-kicker">Launch Pad</p>
-          <h2 class="vtp-title section-head__title">Upload and analysis entry now live on the home page.</h2>
+          <p class="vtp-kicker">{{ t('home.launch.kicker') }}</p>
+          <h2 class="vtp-title section-head__title">{{ t('home.launch.title') }}</h2>
           <p class="vtp-body">
-            Guests can view the product story. Auth-only analysis actions are guarded inside the
-            upload module, so the entry point is public while the protected flow stays clean.
+            {{ t('home.launch.body') }}
           </p>
         </div>
 
@@ -201,6 +194,7 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import UploadZone from '@/components/UploadZone.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -211,6 +205,7 @@ ScrollTrigger.config({
 });
 
 const authStore = useAuthStore();
+const { t, tm } = useI18n();
 const pageRef = ref<HTMLElement | null>(null);
 
 let context: gsap.Context | null = null;
@@ -226,41 +221,46 @@ const loginLink = computed(() => ({
   },
 }));
 
-const stats = [
-  { value: '6', label: 'Platform Outputs', text: 'Sora, Runway, Kling, Pika, Wan, Hailuo' },
-  { value: 'Hero Ready', label: 'Real Assets', text: 'The first screen already uses the provided layered visuals' },
-  { value: 'Public Home', label: 'Open Access', text: 'Guests can browse the landing page without forced auth' },
-];
+interface HomeStat {
+  value: string;
+  label: string;
+  text: string;
+}
 
-const heroCards = [
-  { id: '01', title: 'Ingest', text: 'Local upload and URL import are unified at the entrance layer.', tag: 'Input Gate' },
-  { id: '02', title: 'Analyze', text: 'Frames, motion, mood, and scene structure are normalized before output.', tag: 'Analysis Core' },
-  { id: '03', title: 'Rewrite', text: 'Prompt wording changes by platform while keeping visual intent stable.', tag: 'Prompt Rewrite' },
-];
+interface HomeCard {
+  id: string;
+  title: string;
+  text: string;
+  tag: string;
+}
 
-const features = [
-  { tag: 'Section 02', title: 'Scene placeholders already reserved', text: 'Future assets can be dropped into clear stage slots instead of forcing layout rewrites.' },
-  { tag: 'Section 03', title: 'Homepage now tells the actual product story', text: 'The product flow is visible before upload so users understand what happens next.' },
-  { tag: 'Section 04', title: 'Navigation already includes future pages', text: 'Pricing, history, profile, and share routes are in place before backend completion.' },
-];
+interface HomeFeature {
+  tag: string;
+  title: string;
+  text: string;
+}
 
-const workflow = [
-  { kicker: 'Frame Selection', title: 'Keep sampling readable', text: 'Scene switching plus interval sampling prevents the result page from turning into noise.' },
-  { kicker: 'Prompt Structuring', title: 'Normalize camera language', text: 'Subject, scene, light, color, motion, and lens instructions stay in one shared structure.' },
-  { kicker: 'Review Surface', title: 'Result page stays the editing hub', text: 'The landing page sells the flow. The result page keeps copy, export, and follow-up actions.' },
-];
+interface HomeWorkflowItem {
+  kicker: string;
+  title: string;
+  text: string;
+}
 
-const integrations = [
-  { name: 'Sora', text: 'Natural language' },
-  { name: 'Runway', text: 'Lens-first phrasing' },
-  { name: 'Kling', text: 'Chinese motion bias' },
-  { name: 'Pika', text: 'Compact prompts' },
-  { name: 'Wan', text: 'Bilingual structure' },
-  { name: 'Hailuo', text: 'Mood-heavy output' },
-];
+interface HomeIntegration {
+  name: string;
+  text: string;
+}
+
+const heroTitleLines = computed<string[]>(() => tm('home.hero.titleLines') as string[]);
+const stats = computed<HomeStat[]>(() => tm('home.hero.stats') as HomeStat[]);
+const heroCards = computed<HomeCard[]>(() => tm('home.hero.cards') as HomeCard[]);
+const features = computed<HomeFeature[]>(() => tm('home.storyGrid.features') as HomeFeature[]);
+const workflow = computed<HomeWorkflowItem[]>(() => tm('home.workflow.list') as HomeWorkflowItem[]);
+const integrations = computed<HomeIntegration[]>(() => tm('home.network.integrations') as HomeIntegration[]);
 
 function nodeStyle(index: number) {
-  const angle = index * 60;
+  const total = integrations.value.length || 1;
+  const angle = index * (360 / total);
   const radius = index % 2 === 0 ? 11.5 : 13.5;
 
   return {

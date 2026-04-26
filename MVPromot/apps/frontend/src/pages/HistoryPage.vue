@@ -2,9 +2,9 @@
   <section class="vtp-page px-0 py-10">
     <div class="vtp-panel rounded-[2rem] p-6 md:p-10">
       <p class="vtp-kicker">History</p>
-      <h1 class="vtp-title mt-4 max-w-[12ch]">历史分析记录</h1>
+      <h1 class="vtp-title mt-4 max-w-[12ch]">{{ t('history.title') }}</h1>
       <p class="vtp-body mt-4 max-w-3xl">
-        按创建时间倒序展示分析结果，支持快速回看和删除记录。
+        {{ t('history.subtitle') }}
       </p>
     </div>
 
@@ -39,7 +39,7 @@
       </p>
 
       <div v-else-if="items.length === 0" class="vtp-panel rounded-[1.5rem] p-6 text-sm text-slate-300">
-        暂无历史记录，先去分析一个视频吧。
+        {{ t('history.empty') }}
       </div>
 
       <article
@@ -51,12 +51,12 @@
           <LazyImage
             v-if="item.coverThumbUrl"
             :src="toImageUrl(item.coverThumbUrl)"
-            alt="分析封面"
+            :alt="t('history.coverAlt')"
             image-class="aspect-video w-full object-cover"
             wrapper-class="relative overflow-hidden"
           />
           <div v-else class="flex aspect-video items-center justify-center text-xs text-slate-400">
-            无关键帧封面
+            {{ t('history.noCover') }}
           </div>
         </div>
 
@@ -71,7 +71,13 @@
           </div>
 
           <p class="mt-2 text-sm text-slate-300">
-            创建时间：{{ formatDate(item.createdAt) }} · 帧数：{{ item.frameCount }} · 语言：{{ languageLabel(item.language) }}
+            {{
+              t('history.meta', {
+                createdAt: formatDate(item.createdAt),
+                frameCount: item.frameCount,
+                language: languageLabel(item.language),
+              })
+            }}
           </p>
           <p class="mt-2 text-sm text-slate-400">analysisId: {{ item.analysisId }}</p>
 
@@ -87,31 +93,31 @@
         </div>
 
         <div class="flex flex-wrap gap-2 md:justify-end">
-          <button class="vtp-button" @click="goResult(item.analysisId)">查看结果</button>
+          <button class="vtp-button" @click="goResult(item.analysisId)">{{ t('history.viewResult') }}</button>
           <button
             class="vtp-button vtp-button--ghost"
             :disabled="deletingId === item.analysisId"
             @click="removeItem(item.analysisId)"
           >
-            {{ deletingId === item.analysisId ? '删除中...' : '删除' }}
+            {{ deletingId === item.analysisId ? t('history.deleting') : t('history.delete') }}
           </button>
         </div>
       </article>
 
       <div v-if="totalPages > 1" class="vtp-panel flex items-center justify-between rounded-[1.5rem] p-4">
         <p class="text-sm text-slate-300">
-          第 {{ page }} / {{ totalPages }} 页（共 {{ total }} 条）
+          {{ t('history.pagination', { page, totalPages, total }) }}
         </p>
         <div class="flex gap-2">
           <button class="vtp-button vtp-button--ghost" :disabled="page <= 1" @click="changePage(page - 1)">
-            上一页
+            {{ t('history.prevPage') }}
           </button>
           <button
             class="vtp-button vtp-button--ghost"
             :disabled="page >= totalPages"
             @click="changePage(page + 1)"
           >
-            下一页
+            {{ t('history.nextPage') }}
           </button>
         </div>
       </div>
@@ -122,14 +128,17 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { deleteAnalysisRequest, getAnalysisHistoryRequest } from '@/api/analysis';
 import { apiBaseUrl } from '@/api/http';
 import LazyImage from '@/components/LazyImage.vue';
+import { resolveDateLocale } from '@/i18n';
 import type { AnalysisHistoryItem, AnalysisStatus, PromptLanguage, PromptPlatform } from '@/types/analysis';
 
 const router = useRouter();
+const { t, locale } = useI18n();
 
 const loading = ref(false);
 const errorMessage = ref('');
@@ -165,12 +174,12 @@ function formatDate(value: string) {
     return value;
   }
 
-  return parsed.toLocaleString('zh-CN', { hour12: false });
+  return parsed.toLocaleString(resolveDateLocale(locale.value), { hour12: false });
 }
 
 function platformSummary(platforms: PromptPlatform[]) {
   if (platforms.length === 0) {
-    return '未记录平台';
+    return t('history.noPlatforms');
   }
 
   return platforms.map((item) => platformLabel(item)).join(' / ');
@@ -178,12 +187,14 @@ function platformSummary(platforms: PromptPlatform[]) {
 
 function platformLabel(platform: PromptPlatform) {
   const map: Record<PromptPlatform, string> = {
-    sora: 'Sora',
-    runway: 'Runway',
-    kling: '可灵',
-    pika: 'Pika',
-    wan: '万象',
-    hailuo: '海螺',
+    sora: t('enum.platform.sora'),
+    runway: t('enum.platform.runway'),
+    kling: t('enum.platform.kling'),
+    pika: t('enum.platform.pika'),
+    wan: t('enum.platform.wan'),
+    hailuo: t('enum.platform.hailuo'),
+    seedance: t('enum.platform.seedance'),
+    happyhorse: t('enum.platform.happyhorse'),
   };
 
   return map[platform];
@@ -191,9 +202,9 @@ function platformLabel(platform: PromptPlatform) {
 
 function languageLabel(language: PromptLanguage) {
   const map: Record<PromptLanguage, string> = {
-    zh: '中文',
-    en: '英文',
-    bilingual: '双语',
+    zh: t('enum.promptLanguage.zh'),
+    en: t('enum.promptLanguage.en'),
+    bilingual: t('enum.promptLanguage.bilingual'),
   };
 
   return map[language];
@@ -201,11 +212,11 @@ function languageLabel(language: PromptLanguage) {
 
 function statusLabel(status: AnalysisStatus) {
   const map: Record<AnalysisStatus, string> = {
-    PENDING: '排队中',
-    EXTRACTING: '提帧中',
-    ANALYZING: '分析中',
-    DONE: '已完成',
-    FAILED: '失败',
+    PENDING: t('enum.analysisStatus.PENDING'),
+    EXTRACTING: t('enum.analysisStatus.EXTRACTING'),
+    ANALYZING: t('enum.analysisStatus.ANALYZING'),
+    DONE: t('enum.analysisStatus.DONE'),
+    FAILED: t('enum.analysisStatus.FAILED'),
   };
 
   return map[status];
@@ -227,9 +238,9 @@ async function fetchHistory() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       errorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '读取历史记录失败';
+        (error.response?.data as { message?: string })?.message ?? t('history.errors.fetchFailed');
     } else {
-      errorMessage.value = '读取历史记录失败';
+      errorMessage.value = t('history.errors.fetchFailed');
     }
   } finally {
     loading.value = false;
@@ -250,7 +261,7 @@ function goResult(analysisId: string) {
 }
 
 async function removeItem(analysisId: string) {
-  const confirmed = window.confirm('确认删除这条分析记录？删除后不可恢复。');
+  const confirmed = window.confirm(t('history.deleteConfirm'));
   if (!confirmed) {
     return;
   }
@@ -269,9 +280,9 @@ async function removeItem(analysisId: string) {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       errorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '删除记录失败';
+        (error.response?.data as { message?: string })?.message ?? t('history.errors.deleteFailed');
     } else {
-      errorMessage.value = '删除记录失败';
+      errorMessage.value = t('history.errors.deleteFailed');
     }
   } finally {
     deletingId.value = '';

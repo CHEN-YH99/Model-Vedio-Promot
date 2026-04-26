@@ -1,4 +1,12 @@
-export type PromptPlatform = 'sora' | 'runway' | 'kling' | 'pika' | 'wan' | 'hailuo';
+export type PromptPlatform =
+  | 'sora'
+  | 'runway'
+  | 'kling'
+  | 'pika'
+  | 'wan'
+  | 'hailuo'
+  | 'seedance'
+  | 'happyhorse';
 export type SampleDensity = 'low' | 'medium' | 'high';
 export type PromptLanguage = 'zh' | 'en' | 'bilingual';
 export type AnalysisStatus = 'PENDING' | 'EXTRACTING' | 'ANALYZING' | 'DONE' | 'FAILED';

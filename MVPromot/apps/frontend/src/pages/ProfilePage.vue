@@ -2,27 +2,27 @@
   <section class="vtp-page px-0 py-10">
     <div class="vtp-panel rounded-[2rem] p-6 md:p-10">
       <p class="vtp-kicker">Profile</p>
-      <h1 class="vtp-title mt-4 max-w-[12ch]">个人中心</h1>
+      <h1 class="vtp-title mt-4 max-w-[12ch]">{{ t('profile.title') }}</h1>
       <p class="vtp-body mt-4 max-w-3xl">
-        这里展示账号信息、今日配额使用情况和历史记录入口。配额按上海时区自然日重置。
+        {{ t('profile.subtitle') }}
       </p>
     </div>
 
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
       <article class="vtp-panel rounded-[1.75rem] p-6">
-        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">账号</p>
+        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">{{ t('profile.sections.account') }}</p>
         <h2 class="mt-4 font-[var(--font-display)] text-2xl font-semibold text-white">
-          {{ authStore.user?.name || '未设置昵称' }}
+          {{ authStore.user?.name || t('profile.account.noName') }}
         </h2>
-        <p class="mt-3 text-sm text-slate-300">邮箱：{{ authStore.user?.email }}</p>
-        <p class="mt-2 text-sm text-slate-300">计划：{{ authStore.user?.plan }}</p>
-        <p class="mt-2 text-sm text-slate-300">注册时间：{{ createdAtText }}</p>
+        <p class="mt-3 text-sm text-slate-300">{{ t('profile.account.email', { value: authStore.user?.email ?? t('profile.fallback.none') }) }}</p>
+        <p class="mt-2 text-sm text-slate-300">{{ t('profile.account.plan', { value: authStore.user?.plan ?? t('profile.fallback.none') }) }}</p>
+        <p class="mt-2 text-sm text-slate-300">{{ t('profile.account.createdAt', { value: createdAtText }) }}</p>
       </article>
 
       <article class="vtp-panel rounded-[1.75rem] p-6">
-        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">配额</p>
+        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">{{ t('profile.sections.quota') }}</p>
 
-        <div v-if="loadingQuota" class="mt-4 text-sm text-slate-300">正在读取配额...</div>
+        <div v-if="loadingQuota" class="mt-4 text-sm text-slate-300">{{ t('profile.quota.loading') }}</div>
 
         <p
           v-else-if="quotaError"
@@ -45,14 +45,14 @@
             <p class="mt-2 text-xs text-slate-300">{{ usageText }}</p>
           </div>
 
-          <p class="mt-3 text-xs text-slate-400">重置时间：{{ resetAtText }}</p>
+          <p class="mt-3 text-xs text-slate-400">{{ t('profile.quota.resetAt', { value: resetAtText }) }}</p>
 
-          <RouterLink class="vtp-button mt-6" to="/pricing">查看升级方案</RouterLink>
+          <RouterLink class="vtp-button mt-6" to="/pricing">{{ t('profile.quota.upgrade') }}</RouterLink>
         </template>
       </article>
 
       <article class="vtp-panel rounded-[1.75rem] p-6">
-        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">快捷入口</p>
+        <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">{{ t('profile.sections.shortcuts') }}</p>
         <div class="mt-4 flex flex-wrap gap-2">
           <span
             v-for="item in shortcuts"
@@ -63,19 +63,19 @@
           </span>
         </div>
         <RouterLink class="vtp-button vtp-button--ghost mt-6" to="/history">
-          查看历史记录页
+          {{ t('profile.shortcuts.goHistory') }}
         </RouterLink>
       </article>
     </div>
 
     <article class="vtp-panel mt-6 rounded-[1.75rem] p-6">
-      <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">数据删除（合规）</p>
-      <h2 class="mt-3 font-[var(--font-display)] text-2xl font-semibold text-white">账号数据删除申请</h2>
+      <p class="text-xs uppercase tracking-[0.18em] text-cyan-200/80">{{ t('profile.sections.deletion') }}</p>
+      <h2 class="mt-3 font-[var(--font-display)] text-2xl font-semibold text-white">{{ t('profile.deletion.title') }}</h2>
       <p class="mt-2 text-sm text-slate-300">
-        提交后进入 {{ graceDays }} 天冷静期，到期自动执行删除。冷静期内可撤销申请。
+        {{ t('profile.deletion.desc', { days: graceDays }) }}
       </p>
 
-      <div v-if="deletionLoading" class="mt-4 text-sm text-slate-300">正在读取删除申请状态...</div>
+      <div v-if="deletionLoading" class="mt-4 text-sm text-slate-300">{{ t('profile.deletion.loading') }}</div>
 
       <p
         v-else-if="deletionError"
@@ -86,14 +86,14 @@
 
       <template v-else>
         <div v-if="deletionRequest" class="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-          <p class="text-sm text-slate-200">当前状态：{{ deletionStatusLabel(deletionRequest.status) }}</p>
-          <p class="mt-1 text-xs text-slate-400">申请时间：{{ formatDateTime(deletionRequest.requestedAt) }}</p>
-          <p class="mt-1 text-xs text-slate-400">执行时间：{{ formatDateTime(deletionRequest.executeAfter) }}</p>
+          <p class="text-sm text-slate-200">{{ t('profile.deletion.currentStatus', { status: deletionStatusLabel(deletionRequest.status) }) }}</p>
+          <p class="mt-1 text-xs text-slate-400">{{ t('profile.deletion.requestedAt', { value: formatDateTime(deletionRequest.requestedAt) }) }}</p>
+          <p class="mt-1 text-xs text-slate-400">{{ t('profile.deletion.executeAfter', { value: formatDateTime(deletionRequest.executeAfter) }) }}</p>
           <p v-if="deletionRequest.reason" class="mt-1 text-xs text-slate-400">
-            申请备注：{{ deletionRequest.reason }}
+            {{ t('profile.deletion.reason', { value: deletionRequest.reason }) }}
           </p>
           <p v-if="deletionRequest.failureReason" class="mt-1 text-xs text-rose-300">
-            失败原因：{{ deletionRequest.failureReason }}
+            {{ t('profile.deletion.failureReason', { value: deletionRequest.failureReason }) }}
           </p>
 
           <button
@@ -102,7 +102,7 @@
             :disabled="deletionCanceling"
             @click="cancelDeletionRequest"
           >
-            {{ deletionCanceling ? '撤销中...' : '撤销删除申请' }}
+            {{ deletionCanceling ? t('profile.deletion.canceling') : t('profile.deletion.cancel') }}
           </button>
         </div>
 
@@ -112,14 +112,14 @@
             rows="3"
             class="w-full rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/70"
             maxlength="500"
-            placeholder="可选：填写删除原因（最多 500 字）"
+            :placeholder="t('profile.deletion.reasonPlaceholder')"
           ></textarea>
           <button
             class="vtp-button"
             :disabled="deletionSubmitting"
             @click="submitDeletionRequest"
           >
-            {{ deletionSubmitting ? '提交中...' : '提交删除申请' }}
+            {{ deletionSubmitting ? t('profile.deletion.submitting') : t('profile.deletion.submit') }}
           </button>
         </div>
       </template>
@@ -130,6 +130,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import { getAnalysisQuotaRequest } from '@/api/analysis';
 import {
@@ -137,11 +138,13 @@ import {
   createDataDeletionRequestRequest,
   getDataDeletionRequestStatusRequest,
 } from '@/api/account';
+import { resolveDateLocale } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { AnalysisQuotaResponse } from '@/types/analysis';
 import type { DataDeletionRequestResponse, DataDeletionStatus } from '@/types/account';
 
 const authStore = useAuthStore();
+const { t, locale, tm } = useI18n();
 const loadingQuota = ref(false);
 const quotaError = ref('');
 const quota = ref<AnalysisQuotaResponse | null>(null);
@@ -156,10 +159,10 @@ const deletionRequest = ref<DataDeletionRequestResponse | null>(null);
 const createdAtText = computed(() => {
   const createdAt = authStore.user?.createdAt;
   if (!createdAt) {
-    return '暂无';
+    return t('profile.fallback.none');
   }
 
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(resolveDateLocale(locale.value), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -168,14 +171,14 @@ const createdAtText = computed(() => {
 
 const quotaTitle = computed(() => {
   if (!quota.value) {
-    return '配额信息暂不可用';
+    return t('profile.quota.unavailable');
   }
 
   if (quota.value.isUnlimited) {
-    return '当前计划不限次数';
+    return t('profile.quota.unlimitedTitle');
   }
 
-  return `今日剩余 ${quota.value.remaining ?? 0} 次`;
+  return t('profile.quota.remainingTitle', { remaining: quota.value.remaining ?? 0 });
 });
 
 const quotaDetail = computed(() => {
@@ -184,10 +187,10 @@ const quotaDetail = computed(() => {
   }
 
   if (quota.value.isUnlimited) {
-    return 'Pro / Enterprise 当前不限制分析次数。';
+    return t('profile.quota.unlimitedDetail');
   }
 
-  return `已使用 ${quota.value.used}/${quota.value.limit ?? 0} 次。`;
+  return t('profile.quota.usedDetail', { used: quota.value.used, limit: quota.value.limit ?? 0 });
 });
 
 const usagePercent = computed(() => {
@@ -200,16 +203,16 @@ const usagePercent = computed(() => {
 
 const usageText = computed(() => {
   if (!quota.value || quota.value.isUnlimited) {
-    return '无限制';
+    return t('profile.quota.noLimit');
   }
 
-  return `使用进度：${quota.value.used}/${quota.value.limit ?? 0}`;
+  return t('profile.quota.usageText', { used: quota.value.used, limit: quota.value.limit ?? 0 });
 });
 
 const resetAtText = computed(() => {
   const raw = quota.value?.resetAt;
   if (!raw) {
-    return '暂无';
+    return t('profile.fallback.none');
   }
 
   const date = new Date(raw);
@@ -217,10 +220,10 @@ const resetAtText = computed(() => {
     return raw;
   }
 
-  return date.toLocaleString('zh-CN', { hour12: false });
+  return date.toLocaleString(resolveDateLocale(locale.value), { hour12: false });
 });
 
-const shortcuts = ['配额实时状态', '历史分析记录', '升级入口', '账号信息'];
+const shortcuts = computed<string[]>(() => tm('profile.shortcuts.items') as string[]);
 
 function formatDateTime(value: string) {
   const parsed = new Date(value);
@@ -229,15 +232,15 @@ function formatDateTime(value: string) {
     return value;
   }
 
-  return parsed.toLocaleString('zh-CN', { hour12: false });
+  return parsed.toLocaleString(resolveDateLocale(locale.value), { hour12: false });
 }
 
 function deletionStatusLabel(status: DataDeletionStatus) {
   const map: Record<DataDeletionStatus, string> = {
-    PENDING: '待执行',
-    COMPLETED: '已完成',
-    CANCELED: '已撤销',
-    FAILED: '执行失败',
+    PENDING: t('enum.deletionStatus.PENDING'),
+    COMPLETED: t('enum.deletionStatus.COMPLETED'),
+    CANCELED: t('enum.deletionStatus.CANCELED'),
+    FAILED: t('enum.deletionStatus.FAILED'),
   };
 
   return map[status];
@@ -252,9 +255,9 @@ async function fetchQuota() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       quotaError.value =
-        (error.response?.data as { message?: string })?.message ?? '读取配额失败';
+        (error.response?.data as { message?: string })?.message ?? t('profile.quota.errors.fetchFailed');
     } else {
-      quotaError.value = '读取配额失败';
+      quotaError.value = t('profile.quota.errors.fetchFailed');
     }
   } finally {
     loadingQuota.value = false;
@@ -271,9 +274,9 @@ async function fetchDeletionRequest() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       deletionError.value =
-        (error.response?.data as { message?: string })?.message ?? '读取删除申请状态失败';
+        (error.response?.data as { message?: string })?.message ?? t('profile.deletion.errors.fetchFailed');
     } else {
-      deletionError.value = '读取删除申请状态失败';
+      deletionError.value = t('profile.deletion.errors.fetchFailed');
     }
   } finally {
     deletionLoading.value = false;
@@ -293,9 +296,9 @@ async function submitDeletionRequest() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       deletionError.value =
-        (error.response?.data as { message?: string })?.message ?? '提交删除申请失败';
+        (error.response?.data as { message?: string })?.message ?? t('profile.deletion.errors.submitFailed');
     } else {
-      deletionError.value = '提交删除申请失败';
+      deletionError.value = t('profile.deletion.errors.submitFailed');
     }
   } finally {
     deletionSubmitting.value = false;
@@ -311,9 +314,9 @@ async function cancelDeletionRequest() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       deletionError.value =
-        (error.response?.data as { message?: string })?.message ?? '撤销删除申请失败';
+        (error.response?.data as { message?: string })?.message ?? t('profile.deletion.errors.cancelFailed');
     } else {
-      deletionError.value = '撤销删除申请失败';
+      deletionError.value = t('profile.deletion.errors.cancelFailed');
     }
   } finally {
     deletionCanceling.value = false;

@@ -52,6 +52,24 @@ test('generatePromptByPlatform omits negative prompt for sora and enables it on 
   assert.equal(supportsNegativePrompt('kling'), true);
   assert.equal(supportsNegativePrompt('pika'), true);
   assert.equal(supportsNegativePrompt('hailuo'), true);
+  assert.equal(supportsNegativePrompt('seedance'), false);
+  assert.equal(supportsNegativePrompt('happyhorse'), false);
+});
+
+test('generatePromptByPlatform supports seedance and happyhorse', () => {
+  const seedancePrompt = generatePromptByPlatform({
+    platform: 'seedance',
+    analysis: frameAnalysis,
+  });
+  const happyhorsePrompt = generatePromptByPlatform({
+    platform: 'happyhorse',
+    analysis: frameAnalysis,
+  });
+
+  assert.match(seedancePrompt.prompt.en, /rhythm|cadence/i);
+  assert.match(happyhorsePrompt.prompt.en, /cheerful|storytelling/i);
+  assert.equal(seedancePrompt.negativePrompt, undefined);
+  assert.equal(happyhorsePrompt.negativePrompt, undefined);
 });
 
 test('generateOverallPromptByPlatform returns requested platforms with multilingual payload', () => {
@@ -72,6 +90,7 @@ test('generateOverallPromptByPlatform returns requested platforms with multiling
 
 test('normalizePlatforms keeps supported unique platforms and falls back when invalid', () => {
   assert.deepEqual(normalizePlatforms(['SORA', 'wan', 'wan', 'abc']), ['sora', 'wan']);
+  assert.deepEqual(normalizePlatforms(['seedance', 'HAPPYHORSE', 'seedance']), ['seedance', 'happyhorse']);
   assert.deepEqual(normalizePlatforms(['abc']), ['sora', 'runway']);
   assert.deepEqual(normalizePlatforms(undefined), ['sora', 'runway']);
 });

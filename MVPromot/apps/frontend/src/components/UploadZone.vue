@@ -1,14 +1,14 @@
 ﻿<template>
   <section class="rounded-2xl border border-white/10 bg-white/5 p-6">
-    <h2 class="text-xl font-semibold text-white">上传视频</h2>
+    <h2 class="text-xl font-semibold text-white">{{ t('upload.title') }}</h2>
     <p class="mt-2 text-sm text-zinc-300">
-      支持本地上传或链接导入（YouTube / Bilibili），免费用户 100MB，Pro/企业 500MB。
+      {{ t('upload.subtitle') }}
     </p>
     <p
       v-if="!authStore.isAuthenticated"
       class="mt-3 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-50"
     >
-      首页可以先看流程，真正上传和分析前还是得先登录，不然接口只会把你挡在门外。
+      {{ t('upload.guestHint') }}
     </p>
 
     <div class="mt-5 inline-flex rounded-xl border border-white/10 bg-black/20 p-1 text-sm">
@@ -22,7 +22,7 @@
         "
         @click="activeTab = 'local'"
       >
-        本地上传
+        {{ t('upload.tabs.local') }}
       </button>
       <button
         type="button"
@@ -34,7 +34,7 @@
         "
         @click="activeTab = 'url'"
       >
-        链接导入
+        {{ t('upload.tabs.url') }}
       </button>
     </div>
 
@@ -61,7 +61,7 @@
           class="hidden"
           @change="handleCameraInput"
         />
-        <p class="text-sm text-zinc-200">拖拽视频到这里，或者</p>
+        <p class="text-sm text-zinc-200">{{ t('upload.local.dragHint') }}</p>
         <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
@@ -71,9 +71,9 @@
             {{
               authStore.isAuthenticated
                 ? isMobileUploadMode
-                  ? '从相册/文件选择'
-                  : '点击选择文件'
-                : '登录后上传'
+                  ? t('upload.local.chooseMobileFile')
+                  : t('upload.local.chooseFile')
+                : t('upload.local.uploadAfterLogin')
             }}
           </button>
           <button
@@ -82,16 +82,16 @@
             class="rounded-lg border border-white/20 bg-black/20 px-4 py-2 text-sm text-zinc-100 transition hover:border-emerald-300 hover:text-emerald-200"
             @click="openCameraDialog"
           >
-            直接拍摄视频
+            {{ t('upload.local.openCamera') }}
           </button>
         </div>
         <p v-if="isMobileUploadMode" class="mt-2 text-xs text-zinc-400">
-          手机端支持相册/文件管理器选择，也支持直接调起摄像头拍摄。
+          {{ t('upload.local.mobileHint') }}
         </p>
       </div>
 
       <div v-if="uploadStore.status === 'uploading'" class="mt-5 space-y-2">
-        <p class="text-sm text-zinc-200">上传中 {{ uploadStore.progress }}%</p>
+        <p class="text-sm text-zinc-200">{{ t('upload.local.uploading', { progress: uploadStore.progress }) }}</p>
         <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
           <div
             class="h-full bg-emerald-400 transition-all duration-200"
@@ -111,7 +111,7 @@
     <template v-else>
       <div class="mt-5 space-y-4 rounded-xl border border-white/10 bg-black/20 p-4">
         <label class="block">
-          <span class="text-sm text-zinc-200">视频链接</span>
+          <span class="text-sm text-zinc-200">{{ t('upload.url.label') }}</span>
           <input
             v-model.trim="urlInput"
             type="url"
@@ -122,19 +122,19 @@
 
         <div class="rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-3 text-xs text-amber-100">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <p>版权声明：仅处理你本人拥有或已获授权的视频内容。</p>
+            <p>{{ t('upload.url.copyrightStatement') }}</p>
             <button
               type="button"
               class="rounded-md border border-amber-200/50 px-2 py-1 text-[11px] text-amber-50 transition hover:border-amber-100"
               @click="openAgreementModal()"
             >
-              查看并勾选声明
+              {{ t('upload.url.openAgreement') }}
             </button>
           </div>
           <p class="mt-2">
-            当前状态：
+            {{ t('upload.url.agreementStatus') }}
             <span :class="agreedToTerms ? 'text-emerald-200' : 'text-amber-200'">
-              {{ agreedToTerms ? '已勾选并同意' : '未勾选' }}
+              {{ agreedToTerms ? t('upload.url.agreementAccepted') : t('upload.url.agreementPending') }}
             </span>
           </p>
         </div>
@@ -146,7 +146,13 @@
             :disabled="!canParse"
             @click="handleParseUrl"
           >
-            {{ parseLoading ? '解析中...' : authStore.isAuthenticated ? '解析链接' : '登录后解析' }}
+            {{
+              parseLoading
+                ? t('upload.url.parsing')
+                : authStore.isAuthenticated
+                  ? t('upload.url.parse')
+                  : t('upload.url.parseAfterLogin')
+            }}
           </button>
 
           <button
@@ -157,10 +163,10 @@
           >
             {{
               downloadLoading
-                ? '下载中...'
+                ? t('upload.url.downloading')
                 : authStore.isAuthenticated
-                  ? '下载并继续分析'
-                  : '登录后继续分析'
+                  ? t('upload.url.download')
+                  : t('upload.url.downloadAfterLogin')
             }}
           </button>
         </div>
@@ -170,21 +176,21 @@
           class="rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-100"
         >
           <p>
-            <span class="text-emerald-200">平台：</span>{{ formatPlatform(parsedMeta.platform) }}
+            <span class="text-emerald-200">{{ t('upload.url.metaPlatform') }}</span>{{ formatPlatform(parsedMeta.platform) }}
           </p>
-          <p class="mt-1"><span class="text-emerald-200">标题：</span>{{ parsedMeta.title }}</p>
+          <p class="mt-1"><span class="text-emerald-200">{{ t('upload.url.metaTitle') }}</span>{{ parsedMeta.title }}</p>
           <p class="mt-1">
-            <span class="text-emerald-200">时长：</span>{{ formatDuration(parsedMeta.duration) }}
+            <span class="text-emerald-200">{{ t('upload.url.metaDuration') }}</span>{{ formatDuration(parsedMeta.duration) }}
           </p>
           <p class="mt-1">
-            <span class="text-emerald-200">清晰度：</span>
-            {{ parsedMeta.qualities.join(' / ') || '未知' }}
+            <span class="text-emerald-200">{{ t('upload.url.metaQuality') }}</span>
+            {{ parsedMeta.qualities.join(' / ') || t('common.unknown') }}
           </p>
         </div>
 
         <div v-if="downloadLoading" class="space-y-2">
-          <p class="text-sm text-zinc-200">下载处理中 {{ pseudoDownloadProgress }}%</p>
-          <p v-if="downloadTaskId" class="text-xs text-zinc-400">任务ID：{{ downloadTaskId }}</p>
+          <p class="text-sm text-zinc-200">{{ t('upload.url.downloadingProgress', { progress: pseudoDownloadProgress }) }}</p>
+          <p v-if="downloadTaskId" class="text-xs text-zinc-400">{{ t('upload.url.taskId', { id: downloadTaskId }) }}</p>
           <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
             <div
               class="h-full bg-emerald-400 transition-all duration-300"
@@ -207,20 +213,20 @@
       class="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="版权声明确认"
+      :aria-label="t('upload.url.agreementModal.dialogLabel')"
     >
       <button
         type="button"
         class="absolute inset-0 bg-black/70"
-        aria-label="关闭版权声明弹窗"
+        :aria-label="t('upload.url.agreementModal.closeLabel')"
         @click="closeAgreementModal"
       ></button>
 
       <div class="relative z-10 w-full max-w-lg rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-2xl">
-        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">版权声明</p>
-        <h3 class="mt-2 text-lg font-semibold text-white">未勾选声明前，不能继续解析或下载</h3>
+        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">{{ t('upload.url.agreementModal.title') }}</p>
+        <h3 class="mt-2 text-lg font-semibold text-white">{{ t('upload.url.agreementModal.subtitle') }}</h3>
         <p class="mt-3 text-sm leading-6 text-zinc-300">
-          我确认该视频为本人拥有或已获得授权用于 AI 创作分析，并同意平台仅解析公开画面，不用于传播原始视频内容。
+          {{ t('upload.url.agreementModal.body') }}
         </p>
 
         <label
@@ -231,7 +237,7 @@
             type="checkbox"
             class="mt-0.5 h-4 w-4 rounded border-zinc-500 bg-zinc-900 text-emerald-400"
           />
-          <span>我已阅读并同意以上版权声明</span>
+          <span>{{ t('upload.url.agreementModal.checkbox') }}</span>
         </label>
 
         <div class="mt-5 flex justify-end gap-2">
@@ -240,7 +246,7 @@
             class="rounded-lg border border-white/20 px-4 py-2 text-sm text-zinc-200 transition hover:border-white/40"
             @click="closeAgreementModal"
           >
-            取消
+            {{ t('common.actions.cancel') }}
           </button>
           <button
             type="button"
@@ -248,7 +254,7 @@
             class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
             @click="confirmAgreementAndContinue"
           >
-            同意并继续
+            {{ t('upload.url.agreementModal.confirm') }}
           </button>
         </div>
       </div>
@@ -259,6 +265,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import {
@@ -278,6 +285,7 @@ type PendingUrlAction = 'parse' | 'download' | null;
 const router = useRouter();
 const authStore = useAuthStore();
 const uploadStore = useUploadStore();
+const { t } = useI18n();
 
 const activeTab = ref<UploadTab>('local');
 const dragging = ref(false);
@@ -356,12 +364,12 @@ function validateFile(file: File) {
   const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
 
   if (!ALLOWED_EXTENSIONS.has(extension)) {
-    return '格式不支持，只能上传 MP4/MOV/AVI/WebM';
+    return t('upload.validation.unsupportedFormat');
   }
 
   if (file.size > maxFileSize.value) {
     const maxMb = Math.floor(maxFileSize.value / 1024 / 1024);
-    return `文件太大，当前账号上限 ${maxMb}MB`;
+    return t('upload.validation.fileTooLarge', { maxMb });
   }
 
   return '';
@@ -404,10 +412,10 @@ async function uploadFile(file: File) {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const message =
-        (error.response?.data as { message?: string })?.message ?? '上传失败，请稍后重试';
+        (error.response?.data as { message?: string })?.message ?? t('upload.errors.uploadFailed');
       uploadStore.markError(message);
     } else {
-      uploadStore.markError('上传失败，请稍后重试');
+      uploadStore.markError(t('upload.errors.uploadFailed'));
     }
   }
 }
@@ -417,7 +425,7 @@ async function handleDrop(event: DragEvent) {
 
   const file = event.dataTransfer?.files?.[0];
   if (!file) {
-    uploadStore.markError('没有检测到文件');
+    uploadStore.markError(t('upload.validation.noFile'));
     return;
   }
 
@@ -467,7 +475,7 @@ async function ensureAuthenticated() {
     return true;
   }
 
-  uploadStore.markError('登录状态已失效，请重新登录后再上传或分析视频');
+  uploadStore.markError(t('upload.validation.sessionExpired'));
   await router.push({
     path: '/login',
     query: {
@@ -491,7 +499,7 @@ function closeAgreementModal() {
 
 async function confirmAgreementAndContinue() {
   if (!agreementDraftChecked.value) {
-    urlErrorMessage.value = '请先勾选并同意版权声明';
+    urlErrorMessage.value = t('upload.validation.requireAgreement');
     return;
   }
 
@@ -516,7 +524,7 @@ function ensureAgreement(action: Exclude<PendingUrlAction, null>) {
     return true;
   }
 
-  urlErrorMessage.value = '请先在版权声明弹窗中勾选同意后再继续';
+  urlErrorMessage.value = t('upload.validation.requireAgreementInModal');
   openAgreementModal(action);
   return false;
 }
@@ -600,7 +608,7 @@ async function checkDownloadTaskStatus(taskId: string) {
       stopDownloadProgress(false);
       downloadLoading.value = false;
       downloadTaskId.value = '';
-      urlErrorMessage.value = '下载任务完成但未返回文件信息，请重试';
+      urlErrorMessage.value = t('upload.errors.downloadDoneWithoutFile');
       return;
     }
 
@@ -609,7 +617,7 @@ async function checkDownloadTaskStatus(taskId: string) {
       stopDownloadProgress(false);
       downloadLoading.value = false;
       downloadTaskId.value = '';
-      urlErrorMessage.value = status.errorMessage ?? '链接下载失败，请稍后重试';
+      urlErrorMessage.value = status.errorMessage ?? t('upload.errors.downloadFailed');
     }
   } catch (error) {
     clearDownloadStatusPolling();
@@ -619,10 +627,10 @@ async function checkDownloadTaskStatus(taskId: string) {
 
     if (axios.isAxiosError(error)) {
       const message =
-        (error.response?.data as { message?: string })?.message ?? '下载任务状态读取失败';
+        (error.response?.data as { message?: string })?.message ?? t('upload.errors.downloadStatusFailed');
       urlErrorMessage.value = message;
     } else {
-      urlErrorMessage.value = '下载任务状态读取失败';
+      urlErrorMessage.value = t('upload.errors.downloadStatusFailed');
     }
   } finally {
     downloadStatusPolling = false;
@@ -650,7 +658,7 @@ async function handleParseUrl() {
 
   const currentUrl = urlInput.value.trim();
   if (!currentUrl) {
-    urlErrorMessage.value = '请输入视频链接';
+    urlErrorMessage.value = t('upload.validation.requireUrl');
     return;
   }
 
@@ -666,10 +674,10 @@ async function handleParseUrl() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const message =
-        (error.response?.data as { message?: string })?.message ?? '链接解析失败，请稍后重试';
+        (error.response?.data as { message?: string })?.message ?? t('upload.errors.parseFailed');
       urlErrorMessage.value = message;
     } else {
-      urlErrorMessage.value = '链接解析失败，请稍后重试';
+      urlErrorMessage.value = t('upload.errors.parseFailed');
     }
   } finally {
     parseLoading.value = false;
@@ -687,7 +695,7 @@ async function handleDownloadUrl() {
 
   const currentUrl = urlInput.value.trim();
   if (!currentUrl) {
-    urlErrorMessage.value = '请输入视频链接';
+    urlErrorMessage.value = t('upload.validation.requireUrl');
     return;
   }
 
@@ -715,7 +723,7 @@ async function handleDownloadUrl() {
     if (task.status === 'FAILED') {
       stopDownloadProgress(false);
       downloadLoading.value = false;
-      urlErrorMessage.value = task.errorMessage ?? '链接下载失败，请稍后重试';
+      urlErrorMessage.value = task.errorMessage ?? t('upload.errors.downloadFailed');
       return;
     }
 
@@ -736,10 +744,10 @@ async function handleDownloadUrl() {
 
     if (axios.isAxiosError(error)) {
       const message =
-        (error.response?.data as { message?: string })?.message ?? '链接下载失败，请稍后重试';
+        (error.response?.data as { message?: string })?.message ?? t('upload.errors.downloadFailed');
       urlErrorMessage.value = message;
     } else {
-      urlErrorMessage.value = '链接下载失败，请稍后重试';
+      urlErrorMessage.value = t('upload.errors.downloadFailed');
     }
   }
 }

@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import { createApp } from 'vue';
 
 import { setupHttpInterceptors } from '@/api/interceptors';
+import { i18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 
 import App from './App.vue';
@@ -29,6 +30,7 @@ async function bootstrap() {
   }
 
   app.use(router);
+  app.use(i18n);
   app.use(VueQueryPlugin, { queryClient });
   app.mount('#app');
 }

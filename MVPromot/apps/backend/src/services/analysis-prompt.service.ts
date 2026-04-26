@@ -6,7 +6,16 @@ import {
   type PromptPlatform,
 } from '../types/analysis.js';
 
-const SUPPORTED_PLATFORMS: PromptPlatform[] = ['sora', 'runway', 'kling', 'pika', 'wan', 'hailuo'];
+const SUPPORTED_PLATFORMS: PromptPlatform[] = [
+  'sora',
+  'runway',
+  'kling',
+  'pika',
+  'wan',
+  'hailuo',
+  'seedance',
+  'happyhorse',
+];
 const DISTINCT_VALUE_LIMIT = 3;
 
 type VideoSummary = {
@@ -248,6 +257,8 @@ export function generatePromptByPlatform(input: {
     pika: `${detailEn}; concise but concrete motion and atmosphere, no unrelated elements`,
     wan: `${detailEn}; balanced bilingual-friendly visual semantics, no unrelated elements`,
     hailuo: `${detailEn}; prioritize Chinese-style visual narrative coherence, no unrelated elements`,
+    seedance: `${detailEn}; emphasize dance-like rhythm, smooth motion cadence, and temporal consistency, no unrelated elements`,
+    happyhorse: `${detailEn}; reinforce cheerful storytelling, stable subject identity, and expressive cinematic flow, no unrelated elements`,
   } as const;
 
   const zhBase = {
@@ -257,6 +268,8 @@ export function generatePromptByPlatform(input: {
     pika: `${detailZh}；描述简洁但具体，突出运动与氛围，不要加入无关元素`,
     wan: `${detailZh}；表达兼顾中英语义，不要加入无关元素`,
     hailuo: `${detailZh}；优先中文叙事连贯性，不要加入无关元素`,
+    seedance: `${detailZh}；强调舞蹈感节奏、动作律动与时间连续性，不要加入无关元素`,
+    happyhorse: `${detailZh}；强化欢快叙事、主体稳定与镜头表达流畅，不要加入无关元素`,
   } as const;
 
   return {
@@ -350,6 +363,8 @@ export function generateOverallPromptByPlatform(input: {
     pika: `dynamic multi-shot video of ${subjectsEn}; progression: ${summary.sequenceEn}; environments: ${scenesEn}; atmosphere: ${moodsEn}; look: ${stylesEn}, ${colorsEn}, ${lightingsEn}; camera: ${anglesEn}, ${movementsEn}; concise but coherent sequence, no unrelated elements`,
     wan: `professional full-video prompt featuring ${subjectsEn}; progression: ${summary.sequenceEn}; environments: ${scenesEn}; visual system: ${stylesEn}, ${colorsEn}, ${lightingsEn}; camera grammar: ${anglesEn}, ${movementsEn}; emotional arc: ${moodsEn}; preserve bilingual-friendly clarity and continuity, no unrelated elements`,
     hailuo: `continuous cinematic sequence centered on ${subjectsEn}; progression: ${summary.sequenceEn}; scene coverage: ${scenesEn}; style and atmosphere: ${stylesEn}, ${moodsEn}; lighting and color: ${lightingsEn}, ${colorsEn}; camera approach: ${anglesEn}, ${movementsEn}; coherent narrative flow, no unrelated elements`,
+    seedance: `rhythmic multi-shot sequence featuring ${subjectsEn}; progression: ${summary.sequenceEn}; environments: ${scenesEn}; movement rhythm: ${movementsEn}; visual style: ${stylesEn}, ${colorsEn}, ${lightingsEn}; framing and angle: ${anglesEn}; emotional cadence: ${moodsEn}; maintain dance-like temporal continuity and coherent action arcs, no unrelated elements`,
+    happyhorse: `story-forward multi-shot video with ${subjectsEn}; narrative progression: ${summary.sequenceEn}; scene coverage: ${scenesEn}; visual atmosphere: ${stylesEn}, ${moodsEn}; lighting and color palette: ${lightingsEn}, ${colorsEn}; camera language: ${anglesEn}, ${movementsEn}; keep identity consistency, cheerful tone, and smooth shot transitions, no unrelated elements`,
   } as const;
 
   const overallZh = {
@@ -359,6 +374,8 @@ export function generateOverallPromptByPlatform(input: {
     pika: `整段动态视频围绕${subjectsZh}展开；镜头推进为：${summary.sequenceZh}；主要场景为${scenesZh}；整体氛围是${moodsZh}；视觉呈现为${stylesZh}，结合${colorsZh}与${lightingsZh}；镜头语言为${anglesZh}、${movementsZh}；描述简洁但要保持整片一致，不要加入无关元素`,
     wan: `专业整片提示词：视频主体为${subjectsZh}；镜头推进为：${summary.sequenceZh}；场景覆盖${scenesZh}；整体视觉系统为${stylesZh}、${colorsZh}、${lightingsZh}；镜头语法使用${anglesZh}与${movementsZh}；情绪弧线为${moodsZh}；保证表达清晰、全片连续，不要加入无关元素`,
     hailuo: `整段连续影像以${subjectsZh}为主线；推进节奏为：${summary.sequenceZh}；场景包含${scenesZh}；风格与情绪分别为${stylesZh}、${moodsZh}；色调和光线为${colorsZh}、${lightingsZh}；镜头语言为${anglesZh}、${movementsZh}；保持中文叙事连贯与画面统一，不要加入无关元素`,
+    seedance: `节奏型整段视频以${subjectsZh}为核心；镜头推进为：${summary.sequenceZh}；场景覆盖${scenesZh}；动作律动突出${movementsZh}；视觉风格为${stylesZh}，结合${colorsZh}与${lightingsZh}；景别与机位为${anglesZh}；情绪节拍为${moodsZh}；保持舞蹈感节奏与动作连续，不要加入无关元素`,
+    happyhorse: `叙事型整段视频围绕${subjectsZh}展开；故事推进为：${summary.sequenceZh}；场景包含${scenesZh}；整体氛围为${stylesZh}与${moodsZh}；色调光线为${colorsZh}、${lightingsZh}；镜头语言为${anglesZh}、${movementsZh}；保持主体一致、情绪明快、转场顺滑，不要加入无关元素`,
   } as const;
 
   return input.platforms.reduce<Partial<Record<PromptPlatform, PlatformPromptContent>>>((acc, platform) => {

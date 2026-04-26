@@ -17,7 +17,16 @@ import {
 import { HttpError } from '../utils/http-error.js';
 import { sanitizePlainText } from '../utils/sanitize.js';
 
-const promptPlatformSchema = z.enum(['sora', 'runway', 'kling', 'pika', 'wan', 'hailuo']);
+const promptPlatformSchema = z.enum([
+  'sora',
+  'runway',
+  'kling',
+  'pika',
+  'wan',
+  'hailuo',
+  'seedance',
+  'happyhorse',
+]);
 const promptLanguageSchema = z.enum(['zh', 'en', 'bilingual']);
 
 const startBodySchema = z.object({

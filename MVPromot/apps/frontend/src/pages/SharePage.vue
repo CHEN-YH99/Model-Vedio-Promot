@@ -4,9 +4,9 @@
       class="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_42%),linear-gradient(135deg,_rgba(255,255,255,0.08),_rgba(255,255,255,0.03))] p-5 sm:p-6"
     >
       <p class="text-xs uppercase tracking-[0.24em] text-cyan-200/80">Shared Result</p>
-      <h1 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">公开分享结果</h1>
+      <h1 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t('share.title') }}</h1>
       <p class="mt-2 text-sm text-zinc-300">token: {{ token }}</p>
-      <p v-if="expiresAtText" class="mt-1 text-sm text-zinc-300">有效期至：{{ expiresAtText }}</p>
+      <p v-if="expiresAtText" class="mt-1 text-sm text-zinc-300">{{ t('share.expiresAt', { value: expiresAtText }) }}</p>
     </header>
 
     <div
@@ -59,7 +59,7 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">语言</p>
+        <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">{{ t('share.language') }}</p>
         <button
           v-for="language in languageTabs"
           :key="language"
@@ -78,7 +78,7 @@
       <div class="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <aside class="rounded-[28px] border border-white/10 bg-white/5 p-4 sm:p-5">
           <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Timeline</p>
-          <h3 class="mt-1 text-lg font-semibold text-white">关键帧时间轴</h3>
+          <h3 class="mt-1 text-lg font-semibold text-white">{{ t('share.timeline.title') }}</h3>
           <div class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
             <button
               v-for="(frame, index) in result.frames"
@@ -93,13 +93,13 @@
             >
               <LazyImage
                 :src="toImageUrl(frame.thumbUrl)"
-                alt="关键帧缩略图"
+                :alt="t('share.timeline.title')"
                 image-class="aspect-video w-full rounded-[14px] object-cover"
                 wrapper-class="relative overflow-hidden rounded-[14px]"
               />
               <p class="mt-3 text-sm font-medium text-white">{{ formatTimestamp(frame.timestamp) }}</p>
               <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
-                {{ frame.rawAnalysis.scene || frame.rawAnalysis.subject || '暂无描述' }}
+                {{ frame.rawAnalysis.scene || frame.rawAnalysis.subject || t('share.timeline.noDesc') }}
               </p>
             </button>
           </div>
@@ -107,19 +107,19 @@
 
         <main class="space-y-5">
           <section class="rounded-[28px] border border-cyan-300/20 bg-cyan-400/[0.08] p-5 sm:p-6">
-            <h3 class="text-xl font-semibold text-white">整体提示词</h3>
+            <h3 class="text-xl font-semibold text-white">{{ t('share.overallPrompt') }}</h3>
             <p class="mt-4 whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ overallPromptText }}</p>
           </section>
 
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
-            <h3 class="text-xl font-semibold text-white">当前帧提示词</h3>
+            <h3 class="text-xl font-semibold text-white">{{ t('share.framePrompt') }}</h3>
             <p class="mt-2 text-sm text-zinc-300">{{ selectedFrameMeta }}</p>
             <p class="mt-4 whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ currentFramePrompt }}</p>
           </section>
 
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
             <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Style Tags</p>
-            <h3 class="mt-2 text-xl font-semibold text-white">风格标签</h3>
+            <h3 class="mt-2 text-xl font-semibold text-white">{{ t('share.styleTags') }}</h3>
             <div class="mt-4 flex flex-wrap gap-2">
               <span
                 v-for="tag in result.styleTags"
@@ -139,10 +139,12 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
 import { apiBaseUrl } from '@/api/http';
 import LazyImage from '@/components/LazyImage.vue';
+import { resolveDateLocale } from '@/i18n';
 import { getSharedAnalysisResultRequest } from '@/api/share';
 import type {
   PlatformPromptContent,
@@ -153,6 +155,7 @@ import type {
 } from '@/types/analysis';
 
 const route = useRoute();
+const { t, locale } = useI18n();
 const token = String(route.params.token ?? '');
 
 const loading = ref(true);
@@ -210,16 +213,16 @@ const currentFramePrompt = computed(() => {
     return '';
   }
 
-  return resolvePromptText(frame.prompts[selectedPlatform.value], '当前平台暂无提示词');
+  return resolvePromptText(frame.prompts[selectedPlatform.value], t('share.fallback.noPromptForPlatform'));
 });
 
 const overallPromptText = computed(() => {
   const promptMap = result.value?.overallPrompt;
   if (!promptMap) {
-    return '暂无整体提示词';
+    return t('share.fallback.noOverallPrompt');
   }
 
-  return resolvePromptText(promptMap[selectedPlatform.value], '当前平台暂无整体提示词');
+  return resolvePromptText(promptMap[selectedPlatform.value], t('share.fallback.noOverallPromptForPlatform'));
 });
 
 const selectedFrameMeta = computed(() => {
@@ -227,7 +230,7 @@ const selectedFrameMeta = computed(() => {
   const total = result.value?.frames.length ?? 0;
 
   if (!frame) {
-    return '未选中';
+    return t('share.fallback.noFrameSelected');
   }
 
   return `${formatTimestamp(frame.timestamp)} · ${selectedFrameIndex.value + 1}/${total}`;
@@ -244,7 +247,7 @@ const expiresAtText = computed(() => {
     return value;
   }
 
-  return parsed.toLocaleString('zh-CN', { hour12: false });
+  return parsed.toLocaleString(resolveDateLocale(locale.value), { hour12: false });
 });
 
 function normalizeLanguage(value: unknown): PromptLanguage {
@@ -257,12 +260,14 @@ function normalizeLanguage(value: unknown): PromptLanguage {
 
 function platformLabel(platform: PromptPlatform) {
   const map: Record<PromptPlatform, string> = {
-    sora: 'Sora',
-    runway: 'Runway',
-    kling: '可灵',
-    pika: 'Pika',
-    wan: '万象',
-    hailuo: '海螺',
+    sora: t('enum.platform.sora'),
+    runway: t('enum.platform.runway'),
+    kling: t('enum.platform.kling'),
+    pika: t('enum.platform.pika'),
+    wan: t('enum.platform.wan'),
+    hailuo: t('enum.platform.hailuo'),
+    seedance: t('enum.platform.seedance'),
+    happyhorse: t('enum.platform.happyhorse'),
   };
 
   return map[platform];
@@ -270,9 +275,9 @@ function platformLabel(platform: PromptPlatform) {
 
 function languageLabel(language: PromptLanguage) {
   const map: Record<PromptLanguage, string> = {
-    zh: '中文',
-    en: '英文',
-    bilingual: '双语',
+    zh: t('enum.promptLanguage.zh'),
+    en: t('enum.promptLanguage.en'),
+    bilingual: t('enum.promptLanguage.bilingual'),
   };
 
   return map[language];
@@ -317,9 +322,9 @@ async function fetchResult() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       errorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '读取分享内容失败';
+        (error.response?.data as { message?: string })?.message ?? t('share.errors.fetchShareFailed');
     } else {
-      errorMessage.value = '读取分享内容失败';
+      errorMessage.value = t('share.errors.fetchShareFailed');
     }
   } finally {
     loading.value = false;

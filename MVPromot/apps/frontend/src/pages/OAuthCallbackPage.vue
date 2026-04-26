@@ -1,10 +1,10 @@
 <template>
   <section class="vtp-page px-0 py-8 sm:py-12">
     <div class="mx-auto w-full max-w-lg rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">
-      <h1 class="text-2xl font-semibold text-white">第三方登录回调</h1>
+      <h1 class="text-2xl font-semibold text-white">{{ t('oauth.title') }}</h1>
 
       <p v-if="status === 'loading'" class="mt-3 text-sm text-zinc-300">
-        正在完成授权登录，请稍候...
+        {{ t('oauth.loading') }}
       </p>
 
       <p
@@ -19,7 +19,7 @@
         to="/login"
         class="mt-5 inline-flex rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm text-zinc-100 transition hover:border-white/40"
       >
-        返回登录页
+        {{ t('oauth.backLogin') }}
       </RouterLink>
     </div>
   </section>
@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
@@ -35,6 +36,7 @@ import { useAuthStore } from '@/stores/auth';
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 const status = ref<'loading' | 'error'>('loading');
 const errorMessage = ref('');
@@ -42,11 +44,11 @@ const errorMessage = ref('');
 function parseOAuthError(code: string) {
   switch (code) {
     case 'GOOGLE_OAUTH_FAILED':
-      return 'Google 授权失败，请重试。';
+      return t('oauth.errors.googleFailed');
     case 'WECHAT_OAUTH_FAILED':
-      return '微信授权失败，请重试。';
+      return t('oauth.errors.wechatFailed');
     default:
-      return '第三方登录失败，请稍后再试。';
+      return t('oauth.errors.genericFailed');
   }
 }
 
@@ -63,7 +65,7 @@ async function handleCallback() {
 
   if (!exchangeCode) {
     status.value = 'error';
-    errorMessage.value = '缺少 OAuth 临时凭证，无法完成登录。';
+    errorMessage.value = t('oauth.errors.missingCode');
     return;
   }
 
@@ -76,11 +78,11 @@ async function handleCallback() {
 
     if (axios.isAxiosError(error)) {
       errorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '第三方登录失败，请重试';
+        (error.response?.data as { message?: string })?.message ?? t('oauth.errors.exchangeFailed');
       return;
     }
 
-    errorMessage.value = '第三方登录失败，请重试';
+    errorMessage.value = t('oauth.errors.exchangeFailed');
   }
 }
 

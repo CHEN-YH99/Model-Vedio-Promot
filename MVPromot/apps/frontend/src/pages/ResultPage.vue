@@ -6,22 +6,24 @@
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="text-xs uppercase tracking-[0.24em] text-emerald-200/75">Video Prompt Lab</p>
-          <h1 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">分析结果</h1>
+          <h1 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t('result.title') }}</h1>
           <p class="mt-2 text-sm text-zinc-300">analysisId: {{ analysisId }}</p>
-          <p class="mt-1 text-sm text-zinc-300">状态：{{ result?.status ?? '加载中' }}</p>
+          <p class="mt-1 text-sm text-zinc-300">
+            {{ t('result.status', { status: result?.status ?? t('common.loading') }) }}
+          </p>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-3">
           <div class="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-            <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">关键帧数</p>
+            <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">{{ t('result.keyFrameCount') }}</p>
             <p class="mt-2 text-lg font-semibold text-white">{{ result?.frames.length ?? 0 }}</p>
           </div>
           <div class="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-            <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">当前平台</p>
+            <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">{{ t('result.currentPlatform') }}</p>
             <p class="mt-2 text-lg font-semibold text-white">{{ platformLabel(selectedPlatform) }}</p>
           </div>
           <div class="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-            <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">当前帧</p>
+            <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">{{ t('result.currentFrame') }}</p>
             <p class="mt-2 text-lg font-semibold text-white">{{ selectedFrameMeta }}</p>
           </div>
         </div>
@@ -94,7 +96,7 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">语言</p>
+        <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">{{ t('result.language') }}</p>
         <button
           v-for="language in languageTabs"
           :key="language"
@@ -121,7 +123,7 @@
               <LazyImage
                 v-if="currentFrame"
                 :src="toImageUrl(currentFrame.thumbUrl)"
-                alt="当前选中关键帧"
+                :alt="t('result.selectedFrame')"
                 image-class="absolute inset-0 h-full w-full object-cover"
                 wrapper-class="relative h-full w-full overflow-hidden"
               />
@@ -131,8 +133,8 @@
 
               <div class="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-4 sm:p-5">
                 <div>
-                  <p class="text-xs uppercase tracking-[0.24em] text-emerald-200/80">Selected Frame</p>
-                  <h2 class="mt-2 text-lg font-semibold text-white sm:text-xl">
+                  <p class="text-xs uppercase tracking-[0.24em] text-emerald-200/80">{{ t('result.selectedFrame') }}</p>
+                <h2 class="mt-2 text-lg font-semibold text-white sm:text-xl">
                     {{ currentFrameHeadline }}
                   </h2>
                   <p class="mt-1 text-sm text-zinc-200/80">{{ currentFrameScene }}</p>
@@ -159,11 +161,11 @@
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-4 sm:p-5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Timeline</p>
-                <h3 class="mt-1 text-lg font-semibold text-white">关键帧时间轴</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">{{ t('result.timeline.title') }}</p>
+                <h3 class="mt-1 text-lg font-semibold text-white">{{ t('result.timeline.title') }}</h3>
               </div>
               <div class="flex items-center gap-2">
-                <p class="text-sm text-zinc-400">点击或左右滑动切换当前帧</p>
+                <p class="text-sm text-zinc-400">{{ t('result.timeline.hint') }}</p>
                 <div class="hidden items-center gap-2 sm:flex">
                   <button
                     type="button"
@@ -171,7 +173,7 @@
                     :disabled="selectedFrameIndex <= 0"
                     @click="selectFrameByOffset(-1)"
                   >
-                    上一帧
+                    {{ t('result.timeline.previousFrame') }}
                   </button>
                   <button
                     type="button"
@@ -179,7 +181,7 @@
                     :disabled="selectedFrameIndex >= (result?.frames.length ?? 1) - 1"
                     @click="selectFrameByOffset(1)"
                   >
-                    下一帧
+                    {{ t('result.timeline.nextFrame') }}
                   </button>
                 </div>
               </div>
@@ -206,7 +208,7 @@
                 <div class="overflow-hidden rounded-[16px]">
                   <LazyImage
                     :src="toImageUrl(frame.thumbUrl)"
-                    alt="关键帧缩略图"
+                    :alt="t('result.timeline.title')"
                     image-class="aspect-video w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                     wrapper-class="relative overflow-hidden rounded-[16px]"
                   />
@@ -222,12 +224,12 @@
                         : 'border-white/10 text-zinc-400'
                     "
                   >
-                    帧 {{ index + 1 }}
+                    {{ t('result.timeline.frameLabel', { index: index + 1 }) }}
                   </span>
                 </div>
 
                 <p class="mt-2 line-clamp-2 text-xs leading-5 text-zinc-400">
-                  {{ frame.rawAnalysis.scene || frame.rawAnalysis.subject || '暂无场景描述' }}
+                  {{ frame.rawAnalysis.scene || frame.rawAnalysis.subject || t('result.fallback.noSceneDesc') }}
                 </p>
               </button>
             </div>
@@ -238,10 +240,10 @@
           <section class="rounded-[28px] border border-emerald-300/15 bg-emerald-400/[0.07] p-5 sm:p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-emerald-200/75">Overall Prompt</p>
-                <h3 class="mt-2 text-xl font-semibold text-white">整体视频提示词</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-emerald-200/75">{{ t('result.overallPrompt.kicker') }}</p>
+                <h3 class="mt-2 text-xl font-semibold text-white">{{ t('result.overallPrompt.title') }}</h3>
                 <p class="mt-2 text-sm text-zinc-300">
-                  这是基于整段视频多帧汇总后的专业提示词，不跟单帧一起复读。
+                  {{ t('result.overallPrompt.desc') }}
                 </p>
               </div>
               <div class="flex flex-wrap gap-2">
@@ -249,28 +251,28 @@
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
                   @click="copyText(overallPromptText)"
                 >
-                  复制整体提示词
+                  {{ t('result.overallPrompt.copy') }}
                 </button>
                 <button
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="exporting"
                   @click="exportPrompt('txt')"
                 >
-                  {{ exporting ? '导出中...' : '导出 TXT' }}
+                  {{ exporting ? t('result.overallPrompt.exporting') : t('result.overallPrompt.exportTxt') }}
                 </button>
                 <button
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="exporting"
                   @click="exportPrompt('json')"
                 >
-                  {{ exporting ? '导出中...' : '导出 JSON' }}
+                  {{ exporting ? t('result.overallPrompt.exporting') : t('result.overallPrompt.exportJson') }}
                 </button>
                 <button
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="sharing"
                   @click="createShareLink"
                 >
-                  {{ sharing ? '生成中...' : '生成分享链接' }}
+                  {{ sharing ? t('result.overallPrompt.creatingShare') : t('result.overallPrompt.createShare') }}
                 </button>
               </div>
             </div>
@@ -278,22 +280,22 @@
             <div class="mt-5 rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
               <p class="whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ overallPromptText }}</p>
             </div>
-            <p class="mt-3 text-xs text-zinc-400">字符数：{{ overallPromptText.length }}</p>
+            <p class="mt-3 text-xs text-zinc-400">{{ t('common.chars', { count: overallPromptText.length }) }}</p>
             <p v-if="shareUrl" class="mt-2 text-xs text-emerald-200/85">
-              分享链接：{{ shareUrl }}
+              {{ t('result.overallPrompt.shareLink', { url: shareUrl }) }}
             </p>
             <p v-if="shareExpiresAt" class="mt-1 text-xs text-zinc-400">
-              有效期至：{{ shareExpiresAt }}
+              {{ t('result.overallPrompt.expiresAt', { value: shareExpiresAt }) }}
             </p>
           </section>
 
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Frame Prompt</p>
-                <h3 class="mt-2 text-xl font-semibold text-white">当前帧提示词</h3>
+                <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">{{ t('result.framePrompt.kicker') }}</p>
+                <h3 class="mt-2 text-xl font-semibold text-white">{{ t('result.framePrompt.title') }}</h3>
                 <p class="mt-2 text-sm text-zinc-300">
-                  当前显示 {{ selectedFrameMeta }}，切换左侧时间轴会同步更新这里。
+                  {{ t('result.framePrompt.desc', { frameMeta: selectedFrameMeta }) }}
                 </p>
               </div>
               <div class="flex flex-wrap gap-2">
@@ -301,21 +303,21 @@
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
                   @click="copyText(currentFramePrompt)"
                 >
-                  复制当前帧提示词
+                  {{ t('result.framePrompt.copy') }}
                 </button>
                 <button
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="regenerating"
                   @click="regenerateCurrentFrame"
                 >
-                  {{ regenerating ? '重生成中...' : '重生成当前帧' }}
+                  {{ regenerating ? t('result.framePrompt.regenerating') : t('result.framePrompt.regenerate') }}
                 </button>
                 <button
                   v-if="!editing"
                   class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
                   @click="startEdit"
                 >
-                  编辑
+                  {{ t('result.framePrompt.edit') }}
                 </button>
                 <button
                   v-if="editing"
@@ -323,7 +325,7 @@
                   :disabled="saving"
                   @click="saveEdit"
                 >
-                  {{ saving ? '保存中...' : '保存' }}
+                  {{ saving ? t('result.framePrompt.saving') : t('result.framePrompt.save') }}
                 </button>
                 <button
                   v-if="editing"
@@ -331,7 +333,7 @@
                   :disabled="saving"
                   @click="cancelEdit"
                 >
-                  取消
+                  {{ t('result.framePrompt.cancel') }}
                 </button>
               </div>
             </div>
@@ -344,7 +346,9 @@
               ></textarea>
               <p v-else class="whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ currentFramePrompt }}</p>
             </div>
-            <p class="mt-3 text-xs text-zinc-400">字符数：{{ editing ? promptDraft.length : currentFramePrompt.length }}</p>
+            <p class="mt-3 text-xs text-zinc-400">
+              {{ t('common.chars', { count: editing ? promptDraft.length : currentFramePrompt.length }) }}
+            </p>
           </section>
 
           <section
@@ -353,29 +357,29 @@
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-rose-200/75">Negative Prompt</p>
-                <h3 class="mt-2 text-xl font-semibold text-white">负向提示词</h3>
-                <p class="mt-2 text-sm text-zinc-300">用于排除不希望出现的画面元素，减少脏画面与畸变。</p>
+                <p class="text-xs uppercase tracking-[0.24em] text-rose-200/75">{{ t('result.negativePrompt.kicker') }}</p>
+                <h3 class="mt-2 text-xl font-semibold text-white">{{ t('result.negativePrompt.title') }}</h3>
+                <p class="mt-2 text-sm text-zinc-300">{{ t('result.negativePrompt.desc') }}</p>
               </div>
               <button
                 class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-rose-300 hover:text-rose-100"
                 @click="copyText(editing ? negativePromptDraft : currentFrameNegativePrompt)"
               >
-                复制当前帧负向词
+                {{ t('result.negativePrompt.copy') }}
               </button>
             </div>
 
             <div class="mt-5 grid gap-4 lg:grid-cols-2">
               <article class="rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
-                <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Overall Negative</p>
+                <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">{{ t('result.negativePrompt.overall') }}</p>
                 <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-100">
                   {{ overallNegativePromptText }}
                 </p>
-                <p class="mt-3 text-xs text-zinc-400">字符数：{{ overallNegativePromptText.length }}</p>
+                <p class="mt-3 text-xs text-zinc-400">{{ t('common.chars', { count: overallNegativePromptText.length }) }}</p>
               </article>
 
               <article class="rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
-                <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Frame Negative</p>
+                <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">{{ t('result.negativePrompt.frame') }}</p>
                 <textarea
                   v-if="editing"
                   v-model="negativePromptDraft"
@@ -385,15 +389,15 @@
                   {{ currentFrameNegativePrompt }}
                 </p>
                 <p class="mt-3 text-xs text-zinc-400">
-                  字符数：{{ editing ? negativePromptDraft.length : currentFrameNegativePrompt.length }}
+                  {{ t('common.chars', { count: editing ? negativePromptDraft.length : currentFrameNegativePrompt.length }) }}
                 </p>
               </article>
             </div>
           </section>
 
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
-            <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Style Tags</p>
-            <h3 class="mt-2 text-xl font-semibold text-white">风格标签</h3>
+            <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">{{ t('result.styleTags.kicker') }}</p>
+            <h3 class="mt-2 text-xl font-semibold text-white">{{ t('result.styleTags.title') }}</h3>
             <div class="mt-4 flex flex-wrap gap-2">
               <span
                 v-for="tag in result.styleTags"
@@ -413,6 +417,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { computed, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
 import {
@@ -424,6 +429,7 @@ import {
 } from '@/api/analysis';
 import { apiBaseUrl } from '@/api/http';
 import LazyImage from '@/components/LazyImage.vue';
+import { resolveDateLocale } from '@/i18n';
 import type {
   AnalysisExportFormat,
   AnalysisFrameMutationResponse,
@@ -435,6 +441,7 @@ import type {
 } from '@/types/analysis';
 
 const route = useRoute();
+const { t, locale } = useI18n();
 const analysisId = String(route.params.analysisId ?? '');
 const languageTabs: PromptLanguage[] = ['zh', 'en', 'bilingual'];
 const negativePromptPlatforms: PromptPlatform[] = ['kling', 'pika', 'wan', 'hailuo'];
@@ -512,34 +519,34 @@ const currentFramePrompt = computed(() => {
     return '';
   }
 
-  return resolvePromptText(frame.prompts[selectedPlatform.value], '当前平台暂无提示词');
+  return resolvePromptText(frame.prompts[selectedPlatform.value], t('result.fallback.noPromptForPlatform'));
 });
 
 const overallPromptText = computed(() => {
   const promptMap = result.value?.overallPrompt;
   if (!promptMap) {
-    return '暂无整体提示词';
+    return t('result.fallback.noOverallPrompt');
   }
 
-  return resolvePromptText(promptMap[selectedPlatform.value], '当前平台暂无整体提示词');
+  return resolvePromptText(promptMap[selectedPlatform.value], t('result.fallback.noOverallPromptForPlatform'));
 });
 
 const currentFrameHeadline = computed(() => {
   const frame = currentFrame.value;
   if (!frame) {
-    return '未选中关键帧';
+    return t('result.fallback.noFrameSelected');
   }
 
-  return frame.rawAnalysis.subject || '当前帧主体待补充';
+  return frame.rawAnalysis.subject || t('result.fallback.frameSubjectPending');
 });
 
 const currentFrameScene = computed(() => {
   const frame = currentFrame.value;
   if (!frame) {
-    return '暂无场景信息';
+    return t('result.fallback.noSceneInfo');
   }
 
-  return frame.rawAnalysis.scene || '暂无场景信息';
+  return frame.rawAnalysis.scene || t('result.fallback.noSceneInfo');
 });
 
 const currentFrameFacts = computed(() => {
@@ -548,22 +555,22 @@ const currentFrameFacts = computed(() => {
 
   return [
     {
-      label: '主体',
-      value: rawAnalysis.subject || '暂无主体信息',
+      label: t('result.facts.subject'),
+      value: rawAnalysis.subject || t('result.fallback.noSubjectInfo'),
     },
     {
-      label: '场景',
-      value: rawAnalysis.scene || '暂无场景信息',
+      label: t('result.facts.scene'),
+      value: rawAnalysis.scene || t('result.fallback.noSceneInfo'),
     },
     {
-      label: '风格 / 情绪',
-      value: [rawAnalysis.style, rawAnalysis.mood].filter(Boolean).join(' / ') || '暂无风格信息',
+      label: t('result.facts.styleMood'),
+      value: [rawAnalysis.style, rawAnalysis.mood].filter(Boolean).join(' / ') || t('result.fallback.noStyleInfo'),
     },
     {
-      label: '镜头语言',
+      label: t('result.facts.camera'),
       value:
         [rawAnalysis.cameraAngle, rawAnalysis.cameraMovement].filter(Boolean).join(' / ') ||
-        '暂无镜头信息',
+        t('result.fallback.noCameraInfo'),
     },
   ];
 });
@@ -573,7 +580,7 @@ const selectedFrameMeta = computed(() => {
   const total = result.value?.frames.length ?? 0;
 
   if (!frame) {
-    return '未选中';
+    return t('result.fallback.noFrameSelectedShort');
   }
 
   return `${formatTimestamp(frame.timestamp)} · ${selectedFrameIndex.value + 1}/${total}`;
@@ -585,16 +592,22 @@ const currentFrameNegativePrompt = computed(() => {
     return '';
   }
 
-  return resolveNegativePromptText(frame.prompts[selectedPlatform.value], '当前帧暂无负向提示词');
+  return resolveNegativePromptText(
+    frame.prompts[selectedPlatform.value],
+    t('result.fallback.noFrameNegativePrompt'),
+  );
 });
 
 const overallNegativePromptText = computed(() => {
   const promptMap = result.value?.overallPrompt;
   if (!promptMap) {
-    return '暂无整体负向提示词';
+    return t('result.fallback.noOverallNegativePrompt');
   }
 
-  return resolveNegativePromptText(promptMap[selectedPlatform.value], '当前平台暂无整体负向提示词');
+  return resolveNegativePromptText(
+    promptMap[selectedPlatform.value],
+    t('result.fallback.noOverallNegativePromptForPlatform'),
+  );
 });
 
 const showNegativePromptPanel = computed(() =>
@@ -614,12 +627,14 @@ watch(
 
 function platformLabel(platform: PromptPlatform) {
   const map: Record<PromptPlatform, string> = {
-    sora: 'Sora',
-    runway: 'Runway',
-    kling: '可灵',
-    pika: 'Pika',
-    wan: '万象',
-    hailuo: '海螺',
+    sora: t('enum.platform.sora'),
+    runway: t('enum.platform.runway'),
+    kling: t('enum.platform.kling'),
+    pika: t('enum.platform.pika'),
+    wan: t('enum.platform.wan'),
+    hailuo: t('enum.platform.hailuo'),
+    seedance: t('enum.platform.seedance'),
+    happyhorse: t('enum.platform.happyhorse'),
   };
 
   return map[platform];
@@ -627,9 +642,9 @@ function platformLabel(platform: PromptPlatform) {
 
 function languageLabel(language: PromptLanguage) {
   const map: Record<PromptLanguage, string> = {
-    zh: '中文',
-    en: '英文',
-    bilingual: '双语',
+    zh: t('enum.promptLanguage.zh'),
+    en: t('enum.promptLanguage.en'),
+    bilingual: t('enum.promptLanguage.bilingual'),
   };
 
   return map[language];
@@ -649,7 +664,7 @@ function formatDateTime(value: string) {
     return value;
   }
 
-  return parsed.toLocaleString('zh-CN', {
+  return parsed.toLocaleString(resolveDateLocale(locale.value), {
     hour12: false,
   });
 }
@@ -820,7 +835,7 @@ async function copyText(content: string) {
     }
   } catch {
     if (!fallbackCopyText(content)) {
-      actionErrorMessage.value = '复制失败，请手动复制';
+      actionErrorMessage.value = t('common.errors.copyFailed');
     }
   }
 }
@@ -860,7 +875,7 @@ async function saveEdit() {
 
   const nextPrompt = promptDraft.value.trim();
   if (!nextPrompt) {
-    actionErrorMessage.value = '提示词内容不能为空';
+    actionErrorMessage.value = t('result.errors.emptyPrompt');
     return;
   }
 
@@ -880,9 +895,9 @@ async function saveEdit() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       actionErrorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '保存提示词失败';
+        (error.response?.data as { message?: string })?.message ?? t('result.errors.saveFailed');
     } else {
-      actionErrorMessage.value = '保存提示词失败';
+      actionErrorMessage.value = t('result.errors.saveFailed');
     }
   } finally {
     saving.value = false;
@@ -907,9 +922,9 @@ async function regenerateCurrentFrame() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       actionErrorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '重生成提示词失败';
+        (error.response?.data as { message?: string })?.message ?? t('result.errors.regenerateFailed');
     } else {
-      actionErrorMessage.value = '重生成提示词失败';
+      actionErrorMessage.value = t('result.errors.regenerateFailed');
     }
   } finally {
     regenerating.value = false;
@@ -939,9 +954,9 @@ async function exportPrompt(format: AnalysisExportFormat) {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       actionErrorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '导出失败';
+        (error.response?.data as { message?: string })?.message ?? t('result.errors.exportFailed');
     } else {
-      actionErrorMessage.value = '导出失败';
+      actionErrorMessage.value = t('result.errors.exportFailed');
     }
   } finally {
     exporting.value = false;
@@ -963,9 +978,9 @@ async function createShareLink() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       actionErrorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '生成分享链接失败';
+        (error.response?.data as { message?: string })?.message ?? t('result.errors.shareFailed');
     } else {
-      actionErrorMessage.value = '生成分享链接失败';
+      actionErrorMessage.value = t('result.errors.shareFailed');
     }
   } finally {
     sharing.value = false;
@@ -993,9 +1008,9 @@ async function fetchResult() {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       errorMessage.value =
-        (error.response?.data as { message?: string })?.message ?? '读取分析结果失败';
+        (error.response?.data as { message?: string })?.message ?? t('result.errors.fetchResultFailed');
     } else {
-      errorMessage.value = '读取分析结果失败';
+      errorMessage.value = t('result.errors.fetchResultFailed');
     }
   } finally {
     loading.value = false;

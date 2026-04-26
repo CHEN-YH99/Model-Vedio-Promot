@@ -6,6 +6,11 @@ import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
 import { prisma } from '../plugins/prisma.js';
 import { durationToMs } from '../utils/duration.js';
+import {
+  getSupportedEmailDomains,
+  isSupportedEmailDomain,
+  normalizeEmail as normalizeAccountEmail,
+} from '../utils/email-policy.js';
 import { HttpError } from '../utils/http-error.js';
 import { createAccessToken, createRefreshToken, verifyRefreshToken } from '../utils/auth-token.js';
 import type {
@@ -129,13 +134,34 @@ function toOAuthProviderRecord(provider: OAuthProviderName): OAuthProviderRecord
   return 'WECHAT';
 }
 
-function normalizeEmail(email: string | null | undefined) {
+function normalizeOptionalEmail(email: string | null | undefined) {
   if (!email) {
     return null;
   }
 
-  const normalized = email.trim().toLowerCase();
+  const normalized = normalizeAccountEmail(email);
   return normalized.length > 0 ? normalized : null;
+}
+
+function ensureSupportedEmailDomainForRegister(email: string) {
+  if (isSupportedEmailDomain(email)) {
+    return;
+  }
+
+  const supported = getSupportedEmailDomains().join('、');
+  throw new HttpError(
+    `仅支持以下邮箱后缀注册：${supported}`,
+    400,
+    'UNSUPPORTED_EMAIL_DOMAIN',
+  );
+}
+
+function ensureSupportedEmailDomainForLogin(email: string) {
+  if (isSupportedEmailDomain(email)) {
+    return;
+  }
+
+  throw new HttpError('邮箱或密码错误', 401, 'INVALID_CREDENTIALS');
 }
 
 function sanitizeProviderAccountId(providerAccountId: string) {
@@ -195,6 +221,8 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     password: string;
     name?: string;
   }): Promise<AuthSuccessResponse> {
+    ensureSupportedEmailDomainForRegister(input.email);
+
     const exists = await dependencies.prisma.user.findUnique({
       where: {
         email: input.email,
@@ -227,6 +255,8 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     email: string;
     password: string;
   }): Promise<AuthSuccessResponse> {
+    ensureSupportedEmailDomainForLogin(input.email);
+
     const user = await dependencies.prisma.user.findUnique({
       where: {
         email: input.email,
@@ -287,7 +317,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       };
     }
 
-    const normalizedEmail = normalizeEmail(input.email);
+    const normalizedEmail = normalizeOptionalEmail(input.email);
     let user = normalizedEmail
       ? await dependencies.prisma.user.findUnique({
           where: {

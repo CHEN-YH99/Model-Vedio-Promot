@@ -1,6 +1,14 @@
 export type SampleDensity = 'low' | 'medium' | 'high';
 export type PromptLanguage = 'zh' | 'en' | 'bilingual';
-export type PromptPlatform = 'sora' | 'runway' | 'kling' | 'pika' | 'wan' | 'hailuo';
+export type PromptPlatform =
+  | 'sora'
+  | 'runway'
+  | 'kling'
+  | 'pika'
+  | 'wan'
+  | 'hailuo'
+  | 'seedance'
+  | 'happyhorse';
 export const PROMPT_LANGUAGES: PromptLanguage[] = ['zh', 'en', 'bilingual'];
 export const NEGATIVE_PROMPT_PLATFORMS: PromptPlatform[] = ['kling', 'pika', 'wan', 'hailuo'];
 
