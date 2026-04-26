@@ -1,7 +1,21 @@
-﻿export type PromptPlatform = 'sora' | 'runway' | 'kling' | 'pika' | 'wan' | 'hailuo';
+export type PromptPlatform = 'sora' | 'runway' | 'kling' | 'pika' | 'wan' | 'hailuo';
 export type SampleDensity = 'low' | 'medium' | 'high';
 export type PromptLanguage = 'zh' | 'en' | 'bilingual';
 export type AnalysisStatus = 'PENDING' | 'EXTRACTING' | 'ANALYZING' | 'DONE' | 'FAILED';
+
+export interface PromptLanguageMap {
+  zh: string;
+  en: string;
+  bilingual: string;
+}
+
+export interface PlatformPromptContent {
+  prompt: PromptLanguageMap;
+  negativePrompt?: PromptLanguageMap;
+}
+
+export type PromptPayload = string | PlatformPromptContent;
+export type PromptPayloadMap = Record<string, PromptPayload>;
 
 export interface AnalysisStartPayload {
   fileId: string;
@@ -27,7 +41,7 @@ export interface AnalysisFrame {
   timestamp: number;
   thumbUrl: string;
   rawAnalysis: Record<string, string>;
-  prompts: Record<string, string>;
+  prompts: PromptPayloadMap;
 }
 
 export interface AnalysisResultResponse {
@@ -42,6 +56,6 @@ export interface AnalysisResultResponse {
     language: PromptLanguage;
   };
   styleTags: string[];
-  overallPrompt: Record<string, string> | null;
+  overallPrompt: PromptPayloadMap | null;
   frames: AnalysisFrame[];
 }

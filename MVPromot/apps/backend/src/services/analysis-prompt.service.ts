@@ -1,4 +1,10 @@
-import type { FrameAnalysis, PromptLanguage, PromptPlatform } from '../types/analysis.js';
+import {
+  NEGATIVE_PROMPT_PLATFORMS,
+  type FrameAnalysis,
+  type PlatformPromptContent,
+  type PromptLanguageMap,
+  type PromptPlatform,
+} from '../types/analysis.js';
 
 const SUPPORTED_PLATFORMS: PromptPlatform[] = ['sora', 'runway', 'kling', 'pika', 'wan', 'hailuo'];
 const DISTINCT_VALUE_LIMIT = 3;
@@ -32,16 +38,45 @@ export function normalizePlatforms(input: string[] | undefined): PromptPlatform[
   return Array.from(new Set(normalized));
 }
 
-function byLanguage(input: { zh: string; en: string }, language: PromptLanguage): string {
-  if (language === 'zh') {
-    return input.zh;
+function toPromptLanguageMap(input: { zh: string; en: string }): PromptLanguageMap {
+  return {
+    zh: input.zh,
+    en: input.en,
+    bilingual: `中文：${input.zh}\nEnglish: ${input.en}`,
+  };
+}
+
+export function supportsNegativePrompt(platform: PromptPlatform): boolean {
+  return NEGATIVE_PROMPT_PLATFORMS.includes(platform);
+}
+
+function buildNegativePromptByPlatform(input: {
+  platform: PromptPlatform;
+  analysis: FrameAnalysis;
+}): PromptLanguageMap | undefined {
+  const { platform, analysis } = input;
+
+  if (!supportsNegativePrompt(platform)) {
+    return undefined;
   }
 
-  if (language === 'en') {
-    return input.en;
-  }
+  const zh = [
+    `低清晰度、模糊、噪点、过曝、欠曝、闪烁、帧抖动`,
+    `主体变形、四肢异常、面部畸形、比例错误、重复肢体`,
+    `构图混乱、镜头跳切、时序不连续、场景突变、背景漂移`,
+    `文字水印、logo、字幕条、边框、马赛克、压缩伪影`,
+    `避免与“${analysis.subject} / ${analysis.scene} / ${analysis.style}”无关元素`,
+  ].join('；');
 
-  return `中文：${input.zh}\nEnglish: ${input.en}`;
+  const en = [
+    'low resolution, blur, noise, overexposure, underexposure, flicker, frame jitter',
+    'deformed subject, bad anatomy, distorted face, wrong proportions, duplicated limbs',
+    'chaotic composition, jump cuts, temporal inconsistency, abrupt scene shift, background drift',
+    'text watermark, logo, subtitle bars, borders, mosaic, compression artifacts',
+    `exclude elements unrelated to ${analysis.subject}, ${analysis.scene}, ${analysis.style}`,
+  ].join('; ');
+
+  return toPromptLanguageMap({ zh, en });
 }
 
 function dedupeOrdered(values: string[], limit = DISTINCT_VALUE_LIMIT) {
@@ -200,9 +235,8 @@ function summarizeVideoFrames(frames: FrameAnalysis[]): VideoSummary {
 export function generatePromptByPlatform(input: {
   platform: PromptPlatform;
   analysis: FrameAnalysis;
-  language: PromptLanguage;
-}): string {
-  const { platform, analysis, language } = input;
+}): PlatformPromptContent {
+  const { platform, analysis } = input;
 
   const detailEn = `subject: ${analysis.subject}; scene: ${analysis.scene}; camera: ${analysis.cameraAngle}, ${analysis.cameraMovement}; lighting: ${analysis.lighting}; color: ${analysis.colorTone}; style: ${analysis.style}; mood: ${analysis.mood}`;
   const detailZh = `主体：${analysis.subject}；场景：${analysis.scene}；镜头：${analysis.cameraAngle}，${analysis.cameraMovement}；光线：${analysis.lighting}；色调：${analysis.colorTone}；风格：${analysis.style}；氛围：${analysis.mood}`;
@@ -225,13 +259,16 @@ export function generatePromptByPlatform(input: {
     hailuo: `${detailZh}；优先中文叙事连贯性，不要加入无关元素`,
   } as const;
 
-  return byLanguage(
-    {
+  return {
+    prompt: toPromptLanguageMap({
       zh: zhBase[platform],
       en: enBase[platform],
-    },
-    language,
-  );
+    }),
+    negativePrompt: buildNegativePromptByPlatform({
+      platform,
+      analysis,
+    }),
+  };
 }
 
 export function summarizeAnalysisFrames(frames: FrameAnalysis[]): FrameAnalysis {
@@ -285,7 +322,6 @@ export function summarizeAnalysisFrames(frames: FrameAnalysis[]): FrameAnalysis 
 export function generateOverallPromptByPlatform(input: {
   frames: FrameAnalysis[];
   platforms: PromptPlatform[];
-  language: PromptLanguage;
 }) {
   const summary = summarizeVideoFrames(input.frames);
 
@@ -325,14 +361,31 @@ export function generateOverallPromptByPlatform(input: {
     hailuo: `整段连续影像以${subjectsZh}为主线；推进节奏为：${summary.sequenceZh}；场景包含${scenesZh}；风格与情绪分别为${stylesZh}、${moodsZh}；色调和光线为${colorsZh}、${lightingsZh}；镜头语言为${anglesZh}、${movementsZh}；保持中文叙事连贯与画面统一，不要加入无关元素`,
   } as const;
 
-  return input.platforms.reduce<Record<string, string>>((acc, platform) => {
-    acc[platform] = byLanguage(
-      {
-        zh: overallZh[platform],
-        en: overallEn[platform],
+  return input.platforms.reduce<Partial<Record<PromptPlatform, PlatformPromptContent>>>((acc, platform) => {
+    const overallPrompt = toPromptLanguageMap({
+      zh: overallZh[platform],
+      en: overallEn[platform],
+    });
+
+    const negativePrompt = buildNegativePromptByPlatform({
+      platform,
+      analysis: {
+        subject: subjectsEn || 'main subject',
+        scene: scenesEn || 'generic scene',
+        colorTone: colorsEn || 'balanced color tone',
+        lighting: lightingsEn || 'soft lighting',
+        style: stylesEn || 'cinematic style',
+        mood: moodsEn || 'neutral mood',
+        cameraAngle: anglesEn || 'medium shot',
+        cameraMovement: movementsEn || 'steady camera',
       },
-      input.language,
-    );
+    });
+
+    acc[platform] = {
+      prompt: overallPrompt,
+      negativePrompt,
+    };
+
     return acc;
   }, {});
 }

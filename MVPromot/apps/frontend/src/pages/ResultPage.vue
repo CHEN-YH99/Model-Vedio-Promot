@@ -59,6 +59,23 @@
         </button>
       </div>
 
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">语言</p>
+        <button
+          v-for="language in languageTabs"
+          :key="language"
+          class="rounded-full border px-4 py-2 text-sm transition"
+          :class="
+            language === selectedLanguage
+              ? 'border-emerald-400 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
+              : 'border-white/15 bg-white/5 text-zinc-300 hover:border-white/40 hover:text-white'
+          "
+          @click="selectedLanguage = language"
+        >
+          {{ languageLabel(language) }}
+        </button>
+      </div>
+
       <div class="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)]">
         <aside class="space-y-5">
           <section class="overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
@@ -198,6 +215,43 @@
             <p class="mt-3 text-xs text-zinc-400">字符数：{{ currentFramePrompt.length }}</p>
           </section>
 
+          <section
+            v-if="showNegativePromptPanel"
+            class="rounded-[28px] border border-rose-300/20 bg-rose-400/[0.06] p-5 sm:p-6"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-rose-200/75">Negative Prompt</p>
+                <h3 class="mt-2 text-xl font-semibold text-white">负向提示词</h3>
+                <p class="mt-2 text-sm text-zinc-300">用于排除不希望出现的画面元素，减少脏画面与畸变。</p>
+              </div>
+              <button
+                class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-rose-300 hover:text-rose-100"
+                @click="copyText(currentFrameNegativePrompt)"
+              >
+                复制当前帧负向词
+              </button>
+            </div>
+
+            <div class="mt-5 grid gap-4 lg:grid-cols-2">
+              <article class="rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
+                <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Overall Negative</p>
+                <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-100">
+                  {{ overallNegativePromptText }}
+                </p>
+                <p class="mt-3 text-xs text-zinc-400">字符数：{{ overallNegativePromptText.length }}</p>
+              </article>
+
+              <article class="rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
+                <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Frame Negative</p>
+                <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-100">
+                  {{ currentFrameNegativePrompt }}
+                </p>
+                <p class="mt-3 text-xs text-zinc-400">字符数：{{ currentFrameNegativePrompt.length }}</p>
+              </article>
+            </div>
+          </section>
+
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
             <p class="text-xs uppercase tracking-[0.24em] text-zinc-500">Style Tags</p>
             <h3 class="mt-2 text-xl font-semibold text-white">风格标签</h3>
@@ -224,16 +278,25 @@ import { useRoute } from 'vue-router';
 
 import { getAnalysisResultRequest } from '@/api/analysis';
 import { apiBaseUrl } from '@/api/http';
-import type { AnalysisResultResponse, PromptPlatform } from '@/types/analysis';
+import type {
+  AnalysisResultResponse,
+  PlatformPromptContent,
+  PromptLanguage,
+  PromptPayload,
+  PromptPlatform,
+} from '@/types/analysis';
 
 const route = useRoute();
 const analysisId = String(route.params.analysisId ?? '');
+const languageTabs: PromptLanguage[] = ['zh', 'en', 'bilingual'];
+const negativePromptPlatforms: PromptPlatform[] = ['kling', 'pika', 'wan', 'hailuo'];
 
 const loading = ref(true);
 const errorMessage = ref('');
 const result = ref<AnalysisResultResponse | null>(null);
 const selectedFrameIndex = ref(0);
 const selectedPlatform = ref<PromptPlatform>('sora');
+const selectedLanguage = ref<PromptLanguage>('zh');
 
 const platformTabs = computed<PromptPlatform[]>(() => {
   const source = result.value;
@@ -255,13 +318,37 @@ const platformTabs = computed<PromptPlatform[]>(() => {
 
 const currentFrame = computed(() => result.value?.frames[selectedFrameIndex.value] ?? null);
 
+function isPromptContent(payload: PromptPayload | undefined): payload is PlatformPromptContent {
+  return Boolean(payload && typeof payload === 'object' && 'prompt' in payload);
+}
+
+function resolvePromptText(payload: PromptPayload | undefined, fallback: string): string {
+  if (!payload) {
+    return fallback;
+  }
+
+  if (typeof payload === 'string') {
+    return payload;
+  }
+
+  return payload.prompt[selectedLanguage.value] ?? fallback;
+}
+
+function resolveNegativePromptText(payload: PromptPayload | undefined, fallback: string): string {
+  if (!isPromptContent(payload)) {
+    return fallback;
+  }
+
+  return payload.negativePrompt?.[selectedLanguage.value] ?? fallback;
+}
+
 const currentFramePrompt = computed(() => {
   const frame = currentFrame.value;
   if (!frame) {
     return '';
   }
 
-  return frame.prompts[selectedPlatform.value] ?? '当前平台暂无提示词';
+  return resolvePromptText(frame.prompts[selectedPlatform.value], '当前平台暂无提示词');
 });
 
 const overallPromptText = computed(() => {
@@ -270,7 +357,7 @@ const overallPromptText = computed(() => {
     return '暂无整体提示词';
   }
 
-  return promptMap[selectedPlatform.value] ?? '当前平台暂无整体提示词';
+  return resolvePromptText(promptMap[selectedPlatform.value], '当前平台暂无整体提示词');
 });
 
 const currentFrameHeadline = computed(() => {
@@ -328,6 +415,28 @@ const selectedFrameMeta = computed(() => {
   return `${formatTimestamp(frame.timestamp)} · ${selectedFrameIndex.value + 1}/${total}`;
 });
 
+const currentFrameNegativePrompt = computed(() => {
+  const frame = currentFrame.value;
+  if (!frame) {
+    return '';
+  }
+
+  return resolveNegativePromptText(frame.prompts[selectedPlatform.value], '当前帧暂无负向提示词');
+});
+
+const overallNegativePromptText = computed(() => {
+  const promptMap = result.value?.overallPrompt;
+  if (!promptMap) {
+    return '暂无整体负向提示词';
+  }
+
+  return resolveNegativePromptText(promptMap[selectedPlatform.value], '当前平台暂无整体负向提示词');
+});
+
+const showNegativePromptPanel = computed(() =>
+  negativePromptPlatforms.includes(selectedPlatform.value),
+);
+
 function platformLabel(platform: PromptPlatform) {
   const map: Record<PromptPlatform, string> = {
     sora: 'Sora',
@@ -339,6 +448,23 @@ function platformLabel(platform: PromptPlatform) {
   };
 
   return map[platform];
+}
+
+function languageLabel(language: PromptLanguage) {
+  const map: Record<PromptLanguage, string> = {
+    zh: '中文',
+    en: '英文',
+    bilingual: '双语',
+  };
+
+  return map[language];
+}
+
+function normalizeLanguage(value: unknown): PromptLanguage {
+  if (value === 'zh' || value === 'en' || value === 'bilingual') {
+    return value;
+  }
+  return 'zh';
 }
 
 function formatTimestamp(value: number) {
@@ -416,6 +542,7 @@ async function fetchResult() {
 
     const firstPlatform = data.config.platforms[0] ?? 'sora';
     selectedPlatform.value = firstPlatform;
+    selectedLanguage.value = normalizeLanguage(data.config.language);
     selectedFrameIndex.value = 0;
   } catch (error) {
     if (axios.isAxiosError(error)) {

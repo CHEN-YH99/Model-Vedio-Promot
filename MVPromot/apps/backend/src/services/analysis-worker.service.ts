@@ -13,7 +13,12 @@ import {
 } from './analysis-prompt.service.js';
 import { collectFrameTimestamps, extractFrames } from './frame-extractor.service.js';
 import { HttpError } from '../utils/http-error.js';
-import type { AnalysisConfig, FrameAnalysis, PromptPlatform } from '../types/analysis.js';
+import type {
+  AnalysisConfig,
+  FrameAnalysis,
+  PlatformPromptContent,
+  PromptPlatform,
+} from '../types/analysis.js';
 
 async function updateAnalysis(
   analysisId: string,
@@ -102,11 +107,12 @@ async function processAnalysis(input: {
 
     frameAnalyses.push(rawAnalysis);
 
-    const prompts = input.config.platforms.reduce<Record<string, string>>((acc, platform) => {
+    const prompts = input.config.platforms.reduce<
+      Partial<Record<PromptPlatform, PlatformPromptContent>>
+    >((acc, platform) => {
       acc[platform] = generatePromptByPlatform({
         platform,
         analysis: rawAnalysis,
-        language: input.config.language,
       });
       return acc;
     }, {});
@@ -128,7 +134,6 @@ async function processAnalysis(input: {
   const overallPrompt = generateOverallPromptByPlatform({
     frames: frameAnalyses,
     platforms: input.config.platforms as PromptPlatform[],
-    language: input.config.language,
   });
 
   const styleTags = extractStyleTags(frameAnalyses);
