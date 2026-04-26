@@ -1,7 +1,10 @@
 import { http } from './http';
 import type {
+  AnalysisDeleteResponse,
   AnalysisExportFormat,
   AnalysisFrameMutationResponse,
+  AnalysisHistoryResponse,
+  AnalysisQuotaResponse,
   AnalysisResultResponse,
   AnalysisShareCreateResponse,
   AnalysisStartPayload,
@@ -93,5 +96,24 @@ export async function exportAnalysisRequest(input: {
 
 export async function createAnalysisShareRequest(analysisId: string) {
   const { data } = await http.post<AnalysisShareCreateResponse>(`/api/analysis/${analysisId}/share`);
+  return data;
+}
+
+export async function getAnalysisQuotaRequest() {
+  const { data } = await http.get<AnalysisQuotaResponse>('/api/analysis/quota');
+  return data;
+}
+
+export async function getAnalysisHistoryRequest(input: { page: number; limit: number }) {
+  const params = new URLSearchParams();
+  params.set('page', String(input.page));
+  params.set('limit', String(input.limit));
+
+  const { data } = await http.get<AnalysisHistoryResponse>(`/api/analysis/history?${params.toString()}`);
+  return data;
+}
+
+export async function deleteAnalysisRequest(analysisId: string) {
+  const { data } = await http.delete<AnalysisDeleteResponse>(`/api/analysis/${analysisId}`);
   return data;
 }

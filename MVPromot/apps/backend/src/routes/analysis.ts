@@ -1,6 +1,9 @@
 ﻿import type { FastifyInstance } from 'fastify';
 
 import {
+  analysisDeleteController,
+  analysisHistoryController,
+  analysisQuotaController,
   analysisExportController,
   analysisFramePromptRegenerateController,
   analysisFramePromptUpdateController,
@@ -10,9 +13,16 @@ import {
   startAnalysisController,
 } from '../controllers/analysis.controller.js';
 import { authenticate } from '../middlewares/authenticate.js';
+import { enforceAnalysisQuota } from '../middlewares/quota.middleware.js';
 
 export function registerAnalysisRoutes(server: FastifyInstance) {
-  server.post('/api/analysis/start', { preHandler: authenticate }, startAnalysisController);
+  server.post(
+    '/api/analysis/start',
+    { preHandler: [authenticate, enforceAnalysisQuota] },
+    startAnalysisController,
+  );
+  server.get('/api/analysis/quota', { preHandler: authenticate }, analysisQuotaController);
+  server.get('/api/analysis/history', { preHandler: authenticate }, analysisHistoryController);
   server.get(
     '/api/analysis/:analysisId/status',
     { preHandler: authenticate },
@@ -42,5 +52,10 @@ export function registerAnalysisRoutes(server: FastifyInstance) {
     '/api/analysis/:analysisId/share',
     { preHandler: authenticate },
     analysisShareCreateController,
+  );
+  server.delete(
+    '/api/analysis/:analysisId',
+    { preHandler: authenticate },
+    analysisDeleteController,
   );
 }

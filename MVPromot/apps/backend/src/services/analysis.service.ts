@@ -13,6 +13,7 @@ import {
   normalizePlatforms,
 } from './analysis-prompt.service.js';
 import { analyzeFrame } from './ai-analyzer.service.js';
+import { consumeAnalysisQuota, getAnalysisQuotaStatus } from './quota.service.js';
 import { env } from '../config/env.js';
 import { HttpError } from '../utils/http-error.js';
 import type {
@@ -47,6 +48,8 @@ type AnalysisResultPayload = {
     prompts: Prisma.JsonValue;
   }>;
 };
+
+type SampleDensity = 'low' | 'medium' | 'high';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -170,6 +173,17 @@ function parseAnalysisRuntimeConfig(configRaw: Prisma.JsonValue): {
   };
 }
 
+function parseSampleDensity(configRaw: Prisma.JsonValue): SampleDensity {
+  const config = isRecord(configRaw) ? configRaw : {};
+  const value = config.sampleDensity;
+
+  if (value === 'low' || value === 'medium' || value === 'high') {
+    return value;
+  }
+
+  return 'medium';
+}
+
 function resolveFrameImagePath(thumbUrl: string) {
   const uploadRoot = path.resolve(env.UPLOAD_DIR);
   const relativePath = thumbUrl.startsWith('/uploads/')
@@ -269,6 +283,8 @@ export async function startAnalysisTask(input: {
     throw new HttpError('未找到上传文件，请先上传视频', 404, 'UPLOAD_FILE_NOT_FOUND');
   }
 
+  await consumeAnalysisQuota({ userId: input.userId });
+
   const analysis = await prisma.analysis.create({
     data: {
       userId: input.userId,
@@ -347,6 +363,106 @@ export async function getAnalysisResult(input: { analysisId: string; userId: str
   }
 
   return serializeAnalysisResult(analysis);
+}
+
+export async function getAnalysisQuota(input: { userId: string }) {
+  return getAnalysisQuotaStatus({ userId: input.userId });
+}
+
+export async function getAnalysisHistory(input: {
+  userId: string;
+  page?: number;
+  limit?: number;
+}) {
+  const page = Math.max(1, Math.floor(input.page ?? 1));
+  const limit = Math.max(1, Math.min(50, Math.floor(input.limit ?? 10)));
+  const skip = (page - 1) * limit;
+
+  const [total, analyses] = await prisma.$transaction([
+    prisma.analysis.count({
+      where: {
+        userId: input.userId,
+      },
+    }),
+    prisma.analysis.findMany({
+      where: {
+        userId: input.userId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: limit,
+      include: {
+        _count: {
+          select: {
+            frames: true,
+          },
+        },
+        frames: {
+          take: 1,
+          orderBy: {
+            timestamp: 'asc',
+          },
+        },
+      },
+    }),
+  ]);
+
+  const items = analyses.map((analysis) => {
+    const runtimeConfig = parseAnalysisRuntimeConfig(analysis.config);
+
+    return {
+      analysisId: analysis.id,
+      fileId: analysis.fileId,
+      status: analysis.status,
+      progress: analysis.progress,
+      errorMessage: analysis.errorMessage,
+      sampleDensity: parseSampleDensity(analysis.config),
+      platforms: runtimeConfig.platforms,
+      language: runtimeConfig.language,
+      frameCount: analysis._count.frames,
+      coverThumbUrl: analysis.frames[0]?.thumbUrl ?? null,
+      styleTags: analysis.styleTags,
+      createdAt: analysis.createdAt.toISOString(),
+      updatedAt: analysis.updatedAt.toISOString(),
+    };
+  });
+
+  return {
+    items,
+    page,
+    limit,
+    total,
+    totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+  };
+}
+
+export async function deleteAnalysis(input: { analysisId: string; userId: string }) {
+  const analysis = await prisma.analysis.findFirst({
+    where: {
+      id: input.analysisId,
+      userId: input.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!analysis) {
+    throw new HttpError('分析任务不存在', 404, 'ANALYSIS_NOT_FOUND');
+  }
+
+  await prisma.analysis.delete({
+    where: {
+      id: analysis.id,
+    },
+  });
+
+  return {
+    analysisId: analysis.id,
+    deleted: true,
+  };
 }
 
 export async function updateFramePrompt(input: {

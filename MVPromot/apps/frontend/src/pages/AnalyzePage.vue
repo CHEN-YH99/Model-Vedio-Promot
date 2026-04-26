@@ -83,6 +83,13 @@
         >
           {{ submitError }}
         </p>
+        <RouterLink
+          v-if="quotaExceeded"
+          to="/pricing"
+          class="inline-flex rounded-lg border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 transition hover:border-amber-200"
+        >
+          配额不足，去升级 Pro
+        </RouterLink>
 
         <button
           type="submit"
@@ -115,6 +122,7 @@ const errorMessage = ref('');
 const submitError = ref('');
 const submitting = ref(false);
 const meta = ref<VideoMeta | null>(null);
+const quotaExceeded = ref(false);
 
 const sampleDensity = ref<SampleDensity>('medium');
 const language = ref<PromptLanguage>('en');
@@ -159,6 +167,7 @@ async function fetchMeta() {
 
 async function handleStartAnalysis() {
   submitError.value = '';
+  quotaExceeded.value = false;
 
   if (selectedPlatforms.value.length === 0) {
     submitError.value = '至少选择一个目标平台';
@@ -180,6 +189,8 @@ async function handleStartAnalysis() {
     await router.push(`/analysis/progress/${analysisId}`);
   } catch (error) {
     if (axios.isAxiosError(error)) {
+      const code = (error.response?.data as { code?: string })?.code;
+      quotaExceeded.value = code === 'QUOTA_EXCEEDED';
       submitError.value =
         (error.response?.data as { message?: string })?.message ?? '提交分析任务失败';
     } else {

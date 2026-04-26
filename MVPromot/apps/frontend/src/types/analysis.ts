@@ -84,3 +84,42 @@ export interface SharedAnalysisResultResponse extends AnalysisResultResponse {
   shareToken: string;
   expiresAt: string | null;
 }
+
+export interface AnalysisQuotaResponse {
+  plan: 'FREE' | 'PRO' | 'ENTERPRISE';
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+  isUnlimited: boolean;
+  exceeded: boolean;
+  resetAt: string;
+}
+
+export interface AnalysisHistoryItem {
+  analysisId: string;
+  fileId: string;
+  status: AnalysisStatus;
+  progress: number;
+  errorMessage: string | null;
+  sampleDensity: SampleDensity;
+  platforms: PromptPlatform[];
+  language: PromptLanguage;
+  frameCount: number;
+  coverThumbUrl: string | null;
+  styleTags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnalysisHistoryResponse {
+  items: AnalysisHistoryItem[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface AnalysisDeleteResponse {
+  analysisId: string;
+  deleted: boolean;
+}

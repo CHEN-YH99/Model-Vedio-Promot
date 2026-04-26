@@ -4,7 +4,10 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { normalizePlatforms } from '../services/analysis-prompt.service.js';
 import {
   createAnalysisShare,
+  deleteAnalysis,
   exportAnalysisResult,
+  getAnalysisHistory,
+  getAnalysisQuota,
   getAnalysisResult,
   getAnalysisStatus,
   regenerateFramePrompt,
@@ -51,6 +54,11 @@ const analysisExportQuerySchema = z.object({
   format: z.enum(['txt', 'json']).default('json'),
   platform: promptPlatformSchema.optional(),
   language: promptLanguageSchema.optional(),
+});
+
+const analysisHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(10),
 });
 
 function toHttpError(error: unknown): HttpError {
@@ -125,6 +133,49 @@ export async function analysisResultController(request: FastifyRequest, reply: F
     const result = await getAnalysisResult({
       analysisId,
       userId: request.auth.userId,
+    });
+
+    return reply.send(result);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisQuotaController(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const result = await getAnalysisQuota({
+      userId: request.auth.userId,
+    });
+
+    return reply.send(result);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisHistoryController(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const query = analysisHistoryQuerySchema.parse(request.query);
+    const result = await getAnalysisHistory({
+      userId: request.auth.userId,
+      page: query.page,
+      limit: query.limit,
     });
 
     return reply.send(result);
@@ -238,6 +289,28 @@ export async function analysisShareCreateController(request: FastifyRequest, rep
     });
 
     return reply.status(201).send(result);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisDeleteController(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const { analysisId } = analysisParamsSchema.parse(request.params);
+    const result = await deleteAnalysis({
+      analysisId,
+      userId: request.auth.userId,
+    });
+
+    return reply.send(result);
   } catch (error) {
     const httpError = toHttpError(error);
     return reply.status(httpError.statusCode).send({
