@@ -121,15 +121,25 @@ function dedupeQualities(values: Array<string | undefined>): string[] {
   return Array.from(set);
 }
 
+function normalizeBilibiliBvid(value: string): string | null {
+  const trimmed = value.trim();
+
+  if (!/^BV[0-9A-Za-z]+$/i.test(trimmed)) {
+    return null;
+  }
+
+  return `BV${trimmed.slice(2)}`;
+}
+
 function extractBilibiliBvid(url: URL): string | null {
   const match = url.pathname.match(/\/video\/(BV[0-9A-Za-z]+)/i);
   if (match?.[1]) {
-    return match[1].toUpperCase();
+    return normalizeBilibiliBvid(match[1]);
   }
 
   const queryBvid = url.searchParams.get('bvid');
-  if (queryBvid && /^BV[0-9A-Za-z]+$/i.test(queryBvid)) {
-    return queryBvid.toUpperCase();
+  if (queryBvid) {
+    return normalizeBilibiliBvid(queryBvid);
   }
 
   return null;
