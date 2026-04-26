@@ -16,6 +16,7 @@ export interface PlatformPromptContent {
 
 export type PromptPayload = string | PlatformPromptContent;
 export type PromptPayloadMap = Record<string, PromptPayload>;
+export type AnalysisExportFormat = 'txt' | 'json';
 
 export interface AnalysisStartPayload {
   fileId: string;
@@ -58,4 +59,28 @@ export interface AnalysisResultResponse {
   styleTags: string[];
   overallPrompt: PromptPayloadMap | null;
   frames: AnalysisFrame[];
+}
+
+export interface UpdateFramePromptPayload {
+  platform: PromptPlatform;
+  language: PromptLanguage;
+  prompt: string;
+  negativePrompt?: string;
+}
+
+export interface AnalysisFrameMutationResponse {
+  frame: AnalysisFrame;
+  overallPrompt: PromptPayloadMap | null;
+  styleTags: string[];
+}
+
+export interface AnalysisShareCreateResponse {
+  token: string;
+  sharePath: string;
+  expiresAt: string;
+}
+
+export interface SharedAnalysisResultResponse extends AnalysisResultResponse {
+  shareToken: string;
+  expiresAt: string | null;
 }

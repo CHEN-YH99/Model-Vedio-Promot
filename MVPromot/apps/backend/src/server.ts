@@ -8,6 +8,7 @@ import { env } from './config/env.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerAnalysisRoutes } from './routes/analysis.js';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerShareRoutes } from './routes/share.js';
 import { registerUploadRoutes } from './routes/upload.js';
 
 export async function buildServer() {
@@ -36,6 +37,7 @@ export async function buildServer() {
 
   registerAuthRoutes(server);
   registerAnalysisRoutes(server);
+  registerShareRoutes(server);
   registerUploadRoutes(server);
   registerHealthRoutes(server);
 

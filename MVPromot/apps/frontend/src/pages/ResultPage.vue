@@ -43,6 +43,13 @@
     </p>
 
     <div v-else-if="result" class="space-y-6">
+      <p
+        v-if="actionErrorMessage"
+        class="rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2 text-sm text-amber-100"
+      >
+        {{ actionErrorMessage }}
+      </p>
+
       <div class="flex flex-wrap gap-2">
         <button
           v-for="platform in platformTabs"
@@ -178,18 +185,47 @@
                   这是基于整段视频多帧汇总后的专业提示词，不跟单帧一起复读。
                 </p>
               </div>
-              <button
-                class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
-                @click="copyText(overallPromptText)"
-              >
-                复制整体提示词
-              </button>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
+                  @click="copyText(overallPromptText)"
+                >
+                  复制整体提示词
+                </button>
+                <button
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="exporting"
+                  @click="exportPrompt('txt')"
+                >
+                  {{ exporting ? '导出中...' : '导出 TXT' }}
+                </button>
+                <button
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="exporting"
+                  @click="exportPrompt('json')"
+                >
+                  {{ exporting ? '导出中...' : '导出 JSON' }}
+                </button>
+                <button
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="sharing"
+                  @click="createShareLink"
+                >
+                  {{ sharing ? '生成中...' : '生成分享链接' }}
+                </button>
+              </div>
             </div>
 
             <div class="mt-5 rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
               <p class="whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ overallPromptText }}</p>
             </div>
             <p class="mt-3 text-xs text-zinc-400">字符数：{{ overallPromptText.length }}</p>
+            <p v-if="shareUrl" class="mt-2 text-xs text-emerald-200/85">
+              分享链接：{{ shareUrl }}
+            </p>
+            <p v-if="shareExpiresAt" class="mt-1 text-xs text-zinc-400">
+              有效期至：{{ shareExpiresAt }}
+            </p>
           </section>
 
           <section class="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
@@ -201,18 +237,55 @@
                   当前显示 {{ selectedFrameMeta }}，切换左侧时间轴会同步更新这里。
                 </p>
               </div>
-              <button
-                class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
-                @click="copyText(currentFramePrompt)"
-              >
-                复制当前帧提示词
-              </button>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
+                  @click="copyText(currentFramePrompt)"
+                >
+                  复制当前帧提示词
+                </button>
+                <button
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="regenerating"
+                  @click="regenerateCurrentFrame"
+                >
+                  {{ regenerating ? '重生成中...' : '重生成当前帧' }}
+                </button>
+                <button
+                  v-if="!editing"
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-emerald-300 hover:text-emerald-100"
+                  @click="startEdit"
+                >
+                  编辑
+                </button>
+                <button
+                  v-if="editing"
+                  class="rounded-full border border-emerald-300/60 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100 transition hover:border-emerald-200"
+                  :disabled="saving"
+                  @click="saveEdit"
+                >
+                  {{ saving ? '保存中...' : '保存' }}
+                </button>
+                <button
+                  v-if="editing"
+                  class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-white/40 hover:text-white"
+                  :disabled="saving"
+                  @click="cancelEdit"
+                >
+                  取消
+                </button>
+              </div>
             </div>
 
             <div class="mt-5 rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
-              <p class="whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ currentFramePrompt }}</p>
+              <textarea
+                v-if="editing"
+                v-model="promptDraft"
+                class="h-48 w-full resize-y rounded-xl border border-white/10 bg-zinc-950/80 p-3 text-sm leading-7 text-zinc-100 outline-none focus:border-emerald-300/60"
+              ></textarea>
+              <p v-else class="whitespace-pre-wrap text-sm leading-7 text-zinc-100">{{ currentFramePrompt }}</p>
             </div>
-            <p class="mt-3 text-xs text-zinc-400">字符数：{{ currentFramePrompt.length }}</p>
+            <p class="mt-3 text-xs text-zinc-400">字符数：{{ editing ? promptDraft.length : currentFramePrompt.length }}</p>
           </section>
 
           <section
@@ -227,7 +300,7 @@
               </div>
               <button
                 class="rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-zinc-200 transition hover:border-rose-300 hover:text-rose-100"
-                @click="copyText(currentFrameNegativePrompt)"
+                @click="copyText(editing ? negativePromptDraft : currentFrameNegativePrompt)"
               >
                 复制当前帧负向词
               </button>
@@ -244,10 +317,17 @@
 
               <article class="rounded-[24px] border border-white/10 bg-black/25 p-4 sm:p-5">
                 <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Frame Negative</p>
-                <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-100">
+                <textarea
+                  v-if="editing"
+                  v-model="negativePromptDraft"
+                  class="mt-3 h-44 w-full resize-y rounded-xl border border-white/10 bg-zinc-950/80 p-3 text-sm leading-7 text-zinc-100 outline-none focus:border-rose-300/60"
+                ></textarea>
+                <p v-else class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-100">
                   {{ currentFrameNegativePrompt }}
                 </p>
-                <p class="mt-3 text-xs text-zinc-400">字符数：{{ currentFrameNegativePrompt.length }}</p>
+                <p class="mt-3 text-xs text-zinc-400">
+                  字符数：{{ editing ? negativePromptDraft.length : currentFrameNegativePrompt.length }}
+                </p>
               </article>
             </div>
           </section>
@@ -273,12 +353,20 @@
 
 <script setup lang="ts">
 import axios from 'axios';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { getAnalysisResultRequest } from '@/api/analysis';
+import {
+  createAnalysisShareRequest,
+  exportAnalysisRequest,
+  getAnalysisResultRequest,
+  regenerateFramePromptRequest,
+  updateFramePromptRequest,
+} from '@/api/analysis';
 import { apiBaseUrl } from '@/api/http';
 import type {
+  AnalysisExportFormat,
+  AnalysisFrameMutationResponse,
   AnalysisResultResponse,
   PlatformPromptContent,
   PromptLanguage,
@@ -293,10 +381,20 @@ const negativePromptPlatforms: PromptPlatform[] = ['kling', 'pika', 'wan', 'hail
 
 const loading = ref(true);
 const errorMessage = ref('');
+const actionErrorMessage = ref('');
 const result = ref<AnalysisResultResponse | null>(null);
 const selectedFrameIndex = ref(0);
 const selectedPlatform = ref<PromptPlatform>('sora');
 const selectedLanguage = ref<PromptLanguage>('zh');
+const editing = ref(false);
+const saving = ref(false);
+const regenerating = ref(false);
+const exporting = ref(false);
+const sharing = ref(false);
+const promptDraft = ref('');
+const negativePromptDraft = ref('');
+const shareUrl = ref('');
+const shareExpiresAt = ref('');
 
 const platformTabs = computed<PromptPlatform[]>(() => {
   const source = result.value;
@@ -437,6 +535,17 @@ const showNegativePromptPanel = computed(() =>
   negativePromptPlatforms.includes(selectedPlatform.value),
 );
 
+watch(
+  [currentFramePrompt, currentFrameNegativePrompt],
+  () => {
+    if (!editing.value) {
+      promptDraft.value = currentFramePrompt.value;
+      negativePromptDraft.value = currentFrameNegativePrompt.value;
+    }
+  },
+  { immediate: true },
+);
+
 function platformLabel(platform: PromptPlatform) {
   const map: Record<PromptPlatform, string> = {
     sora: 'Sora',
@@ -465,6 +574,18 @@ function normalizeLanguage(value: unknown): PromptLanguage {
     return value;
   }
   return 'zh';
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString('zh-CN', {
+    hour12: false,
+  });
 }
 
 function formatTimestamp(value: number) {
@@ -527,14 +648,162 @@ async function copyText(content: string) {
     }
   } catch {
     if (!fallbackCopyText(content)) {
-      errorMessage.value = '复制失败，请手动复制';
+      actionErrorMessage.value = '复制失败，请手动复制';
     }
+  }
+}
+
+function startEdit() {
+  editing.value = true;
+  promptDraft.value = currentFramePrompt.value;
+  negativePromptDraft.value = currentFrameNegativePrompt.value;
+}
+
+function cancelEdit() {
+  editing.value = false;
+  promptDraft.value = currentFramePrompt.value;
+  negativePromptDraft.value = currentFrameNegativePrompt.value;
+}
+
+function applyFrameMutation(resultPayload: AnalysisFrameMutationResponse) {
+  const source = result.value;
+  if (!source) {
+    return;
+  }
+
+  const targetIndex = source.frames.findIndex((item) => item.id === resultPayload.frame.id);
+  if (targetIndex >= 0) {
+    source.frames[targetIndex] = resultPayload.frame;
+  }
+
+  source.overallPrompt = resultPayload.overallPrompt;
+  source.styleTags = resultPayload.styleTags;
+}
+
+async function saveEdit() {
+  const frame = currentFrame.value;
+  if (!frame) {
+    return;
+  }
+
+  const nextPrompt = promptDraft.value.trim();
+  if (!nextPrompt) {
+    actionErrorMessage.value = '提示词内容不能为空';
+    return;
+  }
+
+  saving.value = true;
+  actionErrorMessage.value = '';
+
+  try {
+    const response = await updateFramePromptRequest(analysisId, frame.id, {
+      platform: selectedPlatform.value,
+      language: selectedLanguage.value,
+      prompt: nextPrompt,
+      negativePrompt: showNegativePromptPanel.value ? negativePromptDraft.value : undefined,
+    });
+
+    applyFrameMutation(response);
+    editing.value = false;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      actionErrorMessage.value =
+        (error.response?.data as { message?: string })?.message ?? '保存提示词失败';
+    } else {
+      actionErrorMessage.value = '保存提示词失败';
+    }
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function regenerateCurrentFrame() {
+  const frame = currentFrame.value;
+  if (!frame) {
+    return;
+  }
+
+  regenerating.value = true;
+  actionErrorMessage.value = '';
+
+  try {
+    const response = await regenerateFramePromptRequest(analysisId, frame.id);
+    applyFrameMutation(response);
+    editing.value = false;
+    promptDraft.value = currentFramePrompt.value;
+    negativePromptDraft.value = currentFrameNegativePrompt.value;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      actionErrorMessage.value =
+        (error.response?.data as { message?: string })?.message ?? '重生成提示词失败';
+    } else {
+      actionErrorMessage.value = '重生成提示词失败';
+    }
+  } finally {
+    regenerating.value = false;
+  }
+}
+
+async function exportPrompt(format: AnalysisExportFormat) {
+  exporting.value = true;
+  actionErrorMessage.value = '';
+
+  try {
+    const { blob, fileName } = await exportAnalysisRequest({
+      analysisId,
+      format,
+      platform: selectedPlatform.value,
+      language: selectedLanguage.value,
+    });
+
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      actionErrorMessage.value =
+        (error.response?.data as { message?: string })?.message ?? '导出失败';
+    } else {
+      actionErrorMessage.value = '导出失败';
+    }
+  } finally {
+    exporting.value = false;
+  }
+}
+
+async function createShareLink() {
+  sharing.value = true;
+  actionErrorMessage.value = '';
+
+  try {
+    const response = await createAnalysisShareRequest(analysisId);
+    shareUrl.value = new URL(
+      response.sharePath,
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+    ).toString();
+    shareExpiresAt.value = formatDateTime(response.expiresAt);
+    await copyText(shareUrl.value);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      actionErrorMessage.value =
+        (error.response?.data as { message?: string })?.message ?? '生成分享链接失败';
+    } else {
+      actionErrorMessage.value = '生成分享链接失败';
+    }
+  } finally {
+    sharing.value = false;
   }
 }
 
 async function fetchResult() {
   loading.value = true;
   errorMessage.value = '';
+  actionErrorMessage.value = '';
 
   try {
     const data = await getAnalysisResultRequest(analysisId);
@@ -544,6 +813,11 @@ async function fetchResult() {
     selectedPlatform.value = firstPlatform;
     selectedLanguage.value = normalizeLanguage(data.config.language);
     selectedFrameIndex.value = 0;
+    editing.value = false;
+    promptDraft.value = '';
+    negativePromptDraft.value = '';
+    shareUrl.value = '';
+    shareExpiresAt.value = '';
   } catch (error) {
     if (axios.isAxiosError(error)) {
       errorMessage.value =

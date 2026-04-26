@@ -1,8 +1,14 @@
-﻿import { http } from './http';
+import { http } from './http';
 import type {
+  AnalysisExportFormat,
+  AnalysisFrameMutationResponse,
   AnalysisResultResponse,
+  AnalysisShareCreateResponse,
   AnalysisStartPayload,
   AnalysisStatusResponse,
+  PromptLanguage,
+  PromptPlatform,
+  UpdateFramePromptPayload,
 } from '@/types/analysis';
 
 export async function startAnalysisRequest(payload: AnalysisStartPayload) {
@@ -17,5 +23,75 @@ export async function getAnalysisStatusRequest(analysisId: string) {
 
 export async function getAnalysisResultRequest(analysisId: string) {
   const { data } = await http.get<AnalysisResultResponse>(`/api/analysis/${analysisId}/result`);
+  return data;
+}
+
+export async function updateFramePromptRequest(
+  analysisId: string,
+  frameId: string,
+  payload: UpdateFramePromptPayload,
+) {
+  const { data } = await http.put<AnalysisFrameMutationResponse>(
+    `/api/analysis/${analysisId}/frames/${frameId}/prompt`,
+    payload,
+  );
+
+  return data;
+}
+
+export async function regenerateFramePromptRequest(analysisId: string, frameId: string) {
+  const { data } = await http.post<AnalysisFrameMutationResponse>(
+    `/api/analysis/${analysisId}/frames/${frameId}/regenerate`,
+  );
+
+  return data;
+}
+
+function parseFilenameFromDisposition(contentDisposition: string | undefined) {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const fallbackMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return fallbackMatch?.[1] ?? null;
+}
+
+export async function exportAnalysisRequest(input: {
+  analysisId: string;
+  format: AnalysisExportFormat;
+  platform?: PromptPlatform;
+  language?: PromptLanguage;
+}) {
+  const { analysisId, format, platform, language } = input;
+  const params = new URLSearchParams();
+  params.set('format', format);
+
+  if (platform) {
+    params.set('platform', platform);
+  }
+
+  if (language) {
+    params.set('language', language);
+  }
+
+  const response = await http.get<Blob>(`/api/analysis/${analysisId}/export?${params.toString()}`, {
+    responseType: 'blob',
+  });
+
+  return {
+    blob: response.data,
+    fileName:
+      parseFilenameFromDisposition(response.headers['content-disposition']) ??
+      `analysis-${analysisId}.${format}`,
+  };
+}
+
+export async function createAnalysisShareRequest(analysisId: string) {
+  const { data } = await http.post<AnalysisShareCreateResponse>(`/api/analysis/${analysisId}/share`);
   return data;
 }

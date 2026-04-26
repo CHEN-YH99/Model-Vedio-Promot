@@ -1,13 +1,20 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { normalizePlatforms } from '../services/analysis-prompt.service.js';
 import {
+  createAnalysisShare,
+  exportAnalysisResult,
   getAnalysisResult,
   getAnalysisStatus,
+  regenerateFramePrompt,
   startAnalysisTask,
+  updateFramePrompt,
 } from '../services/analysis.service.js';
 import { HttpError } from '../utils/http-error.js';
+
+const promptPlatformSchema = z.enum(['sora', 'runway', 'kling', 'pika', 'wan', 'hailuo']);
+const promptLanguageSchema = z.enum(['zh', 'en', 'bilingual']);
 
 const startBodySchema = z.object({
   fileId: z.string().min(1),
@@ -15,7 +22,7 @@ const startBodySchema = z.object({
     .object({
       sampleDensity: z.enum(['low', 'medium', 'high']).default('medium'),
       platforms: z.array(z.string()).default(['sora', 'runway']),
-      language: z.enum(['zh', 'en', 'bilingual']).default('en'),
+      language: promptLanguageSchema.default('en'),
     })
     .default({
       sampleDensity: 'medium',
@@ -24,8 +31,26 @@ const startBodySchema = z.object({
     }),
 });
 
-const paramsSchema = z.object({
+const analysisParamsSchema = z.object({
   analysisId: z.string().min(1),
+});
+
+const analysisFrameParamsSchema = z.object({
+  analysisId: z.string().min(1),
+  frameId: z.string().min(1),
+});
+
+const updateFramePromptBodySchema = z.object({
+  platform: promptPlatformSchema,
+  language: promptLanguageSchema,
+  prompt: z.string().trim().min(1, '提示词内容不能为空'),
+  negativePrompt: z.string().optional(),
+});
+
+const analysisExportQuerySchema = z.object({
+  format: z.enum(['txt', 'json']).default('json'),
+  platform: promptPlatformSchema.optional(),
+  language: promptLanguageSchema.optional(),
 });
 
 function toHttpError(error: unknown): HttpError {
@@ -34,7 +59,8 @@ function toHttpError(error: unknown): HttpError {
   }
 
   if (error instanceof z.ZodError) {
-    return new HttpError('请求参数不合法', 400, 'VALIDATION_ERROR');
+    const issue = error.issues[0];
+    return new HttpError(issue?.message ?? '请求参数不合法', 400, 'VALIDATION_ERROR');
   }
 
   return new HttpError('服务器内部错误', 500, 'INTERNAL_ERROR');
@@ -73,7 +99,7 @@ export async function analysisStatusController(request: FastifyRequest, reply: F
   }
 
   try {
-    const { analysisId } = paramsSchema.parse(request.params);
+    const { analysisId } = analysisParamsSchema.parse(request.params);
     const status = await getAnalysisStatus({
       analysisId,
       userId: request.auth.userId,
@@ -95,13 +121,123 @@ export async function analysisResultController(request: FastifyRequest, reply: F
   }
 
   try {
-    const { analysisId } = paramsSchema.parse(request.params);
+    const { analysisId } = analysisParamsSchema.parse(request.params);
     const result = await getAnalysisResult({
       analysisId,
       userId: request.auth.userId,
     });
 
     return reply.send(result);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisFramePromptUpdateController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const { analysisId, frameId } = analysisFrameParamsSchema.parse(request.params);
+    const body = updateFramePromptBodySchema.parse(request.body);
+
+    const result = await updateFramePrompt({
+      analysisId,
+      frameId,
+      userId: request.auth.userId,
+      platform: body.platform,
+      language: body.language,
+      prompt: body.prompt,
+      negativePrompt: body.negativePrompt,
+    });
+
+    return reply.send(result);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisFramePromptRegenerateController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const { analysisId, frameId } = analysisFrameParamsSchema.parse(request.params);
+    const result = await regenerateFramePrompt({
+      analysisId,
+      frameId,
+      userId: request.auth.userId,
+    });
+
+    return reply.send(result);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisExportController(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const { analysisId } = analysisParamsSchema.parse(request.params);
+    const query = analysisExportQuerySchema.parse(request.query);
+
+    const result = await exportAnalysisResult({
+      analysisId,
+      userId: request.auth.userId,
+      format: query.format,
+      platform: query.platform,
+      language: query.language,
+    });
+
+    reply.header('Content-Type', result.contentType);
+    reply.header('Content-Disposition', `attachment; filename="${result.fileName}"`);
+
+    return reply.send(result.content);
+  } catch (error) {
+    const httpError = toHttpError(error);
+    return reply.status(httpError.statusCode).send({
+      message: httpError.message,
+      code: httpError.code,
+    });
+  }
+}
+
+export async function analysisShareCreateController(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.auth) {
+    return reply.status(401).send({ message: '未登录', code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const { analysisId } = analysisParamsSchema.parse(request.params);
+    const result = await createAnalysisShare({
+      analysisId,
+      userId: request.auth.userId,
+    });
+
+    return reply.status(201).send(result);
   } catch (error) {
     const httpError = toHttpError(error);
     return reply.status(httpError.statusCode).send({
